@@ -1,0 +1,175 @@
+// Fortress v3 - Living Dashboard
+// The primary view that answers your key questions without interaction
+
+import React, { useMemo } from 'react';
+import { useFortressStore } from '../store';
+import { HeadlineCards } from './HeadlineCards';
+import { CashflowTable } from './CashflowTable';
+import { MinimumIncomeTable } from './MinimumIncomeTable';
+import { DataEntryModal } from './DataEntryModal';
+import { SettingsModal } from './SettingsModal';
+import { RefreshCw, Settings, Download } from 'lucide-react';
+
+export function Dashboard() {
+  const [showDataEntry, setShowDataEntry] = React.useState(false);
+  const [showConfig, setShowConfig] = React.useState(false);
+
+  const latestSnapshot = useFortressStore(state => state.latestSnapshot);
+  const headlineMetrics = useFortressStore(state => state.headlineMetrics);
+  const cashflowTable = useFortressStore(state => state.cashflowTable);
+  const minimumIncomeTable = useFortressStore(state => state.minimumIncomeTable);
+  const config = useFortressStore(state => state.config);
+
+  const lastUpdated = latestSnapshot?.date
+    ? new Date(latestSnapshot.date).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      })
+    : 'No data';
+
+  // Build dynamic income description
+  const { personalization } = config;
+  const partner1IncomeDesc = config.partner1IncomeMode === 'business'
+    ? `£${(config.partner1BusinessRevenue / 1000).toFixed(0)}k ${personalization.businessName} revenue`
+    : `£${(config.partner1EmployedSalary / 1000).toFixed(0)}k PAYE salary`;
+
+  const partner2IncomeDesc = `£${(config.partner2GrossAnnual / 1000).toFixed(0)}k gross`;
+
+  const workingAgeDesc = (() => {
+    const p1Age = config.partner1WorksUntilAge ?? 50;
+    const p2Age = config.partner2WorksUntilAge ?? 50;
+    if (p1Age === p2Age) {
+      return `both working to ${p1Age}`;
+    }
+    return `${personalization.partner1Name} to ${p1Age}, ${personalization.partner2Name} to ${p2Age}`;
+  })();
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="border-b border-gray-100">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold text-gray-900 tracking-tight">Fortress</h1>
+            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
+              FI Dashboard
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">
+              Last updated: {lastUpdated}
+            </span>
+            <button
+              onClick={() => setShowDataEntry(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Update
+            </button>
+            <button
+              onClick={() => setShowConfig(true)}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </header>
+      
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto px-6 py-8 space-y-12">
+        
+        {/* Headline Metrics */}
+        {headlineMetrics && (
+          <HeadlineCards metrics={headlineMetrics} config={config} />
+        )}
+
+        {/* Cashflow Conclusion Table */}
+        <section>
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">
+              To what age will your money last?
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Assuming {partner1IncomeDesc}, {partner2IncomeDesc}, {workingAgeDesc}
+            </p>
+          </div>
+          
+          {cashflowTable.length > 0 ? (
+            <CashflowTable rows={cashflowTable} />
+          ) : (
+            <EmptyState message="Add your latest snapshot to see projections" />
+          )}
+        </section>
+        
+        {/* Minimum Income Required */}
+        <section>
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">
+              What income do you need?
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Business revenue required to maintain each threshold
+            </p>
+          </div>
+
+          {minimumIncomeTable.length > 0 ? (
+            <MinimumIncomeTable rows={minimumIncomeTable} personalization={personalization} />
+          ) : (
+            <EmptyState message="Add your latest snapshot to see income requirements" />
+          )}
+        </section>
+
+        {/* Actions */}
+        <section className="pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowDataEntry(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Update Numbers
+            </button>
+            
+            <button
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 text-sm font-medium border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Export PDF
+            </button>
+            
+            <a 
+              href="https://claude.ai" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-gray-500 hover:text-gray-700 ml-auto"
+            >
+              Need custom scenarios? → Ask Claude
+            </a>
+          </div>
+        </section>
+      </main>
+      
+      {/* Modals */}
+      {showDataEntry && (
+        <DataEntryModal onClose={() => setShowDataEntry(false)} />
+      )}
+
+      {showConfig && (
+        <SettingsModal onClose={() => setShowConfig(false)} />
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="py-12 text-center border border-dashed border-gray-200 rounded-lg">
+      <p className="text-sm text-gray-400">{message}</p>
+    </div>
+  );
+}
+
+export default Dashboard;
