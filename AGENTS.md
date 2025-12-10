@@ -31,6 +31,7 @@
 - History uses short, imperative subjects (e.g., "license"); keep one focused change per commit, subject <=72 chars.
 - PRs: brief summary + motivation, linked issue (`Fixes #123`), tests executed, and screenshots/GIFs for UI changes (desktop + mobile).
 - Call out data-shape changes to the persisted store or defaults so reviewers can check migration impact.
+- Commit often!
 
 ## Security & Configuration Tips
 - Never commit secrets; keep env-specific values outside the repo.
