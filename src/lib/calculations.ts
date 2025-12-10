@@ -258,7 +258,11 @@ function generateScenariosFromConfig(config: FortressConfig, currentYear: number
     });
   }
 
-  return scenarios;
+  const enabledIds = new Set(config.enabledScenarioIds && config.enabledScenarioIds.length > 0
+    ? [...config.enabledScenarioIds, 'baseline']
+    : scenarios.map(s => s.id));
+
+  return scenarios.filter(scenario => enabledIds.has(scenario.id));
 }
 
 // ============================================================================

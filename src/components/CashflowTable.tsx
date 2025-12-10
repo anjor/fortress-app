@@ -1,16 +1,16 @@
 // Fortress v2 - Cashflow Conclusion Table
 // Answers: "To what age will your money last?"
 
-import type { CashflowTableRow } from '../types';
-import { DEFAULT_ASSUMPTIONS } from '../types';
+import type { AssumptionSet, CashflowTableRow } from '../types';
 
 interface Props {
   rows: CashflowTableRow[];
+  assumptions: AssumptionSet[];
 }
 
-export function CashflowTable({ rows }: Props) {
-  const assumptionHeaders = DEFAULT_ASSUMPTIONS;
-  
+export function CashflowTable({ rows, assumptions }: Props) {
+  const assumptionHeaders = assumptions;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
@@ -22,7 +22,11 @@ export function CashflowTable({ rows }: Props) {
             {assumptionHeaders.map((assumption, index) => (
               <th
                 key={assumption.id}
-                className={`px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap ${index === 4 ? 'border-l-2 border-gray-300' : ''}`}
+                className={`px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap ${
+                  index > 0 && assumption.realReturnRate !== assumptionHeaders[index - 1].realReturnRate
+                    ? 'border-l-2 border-gray-300'
+                    : ''
+                }`}
               >
                 <div>{assumption.realReturnRate * 100}%</div>
                 <div className="font-normal normal-case text-[10px]">
@@ -42,11 +46,15 @@ export function CashflowTable({ rows }: Props) {
                 <span className="text-sm text-gray-900">{row.scenarioName}</span>
               </td>
               {assumptionHeaders.map((assumption, index) => {
-                const age = row.results[assumption.id];
+                const age = row.results[assumption.id] ?? 0;
                 return (
                   <td
                     key={assumption.id}
-                    className={`px-4 py-3 text-center ${index === 4 ? 'border-l-2 border-gray-300' : ''}`}
+                    className={`px-4 py-3 text-center ${
+                      index > 0 && assumption.realReturnRate !== assumptionHeaders[index - 1].realReturnRate
+                        ? 'border-l-2 border-gray-300'
+                        : ''
+                    }`}
                   >
                     <AgeCell age={age} />
                   </td>
@@ -92,20 +100,33 @@ function AgeCell({ age }: AgeCellProps) {
   );
 }
 
+function pickPrimaryAndFallback(assumptions: AssumptionSet[]): { primary?: AssumptionSet; fallback?: AssumptionSet } {
+  if (assumptions.length === 0) return {};
+
+  const sorted = [...assumptions].sort((a, b) => {
+    if (a.realReturnRate !== b.realReturnRate) return b.realReturnRate - a.realReturnRate;
+
+    const aWindfalls = Number(a.includeInheritance) + Number(a.includeInvestmentExit);
+    const bWindfalls = Number(b.includeInheritance) + Number(b.includeInvestmentExit);
+    return bWindfalls - aWindfalls;
+  });
+
+  return { primary: sorted[0], fallback: sorted[sorted.length - 1] };
+}
+
 // ============================================================================
 // Compact variant for smaller screens
 // ============================================================================
 
-export function CashflowTableCompact({ rows }: Props) {
-  // Show only 5% + inheritance (the "realistic optimistic" case)
-  const primaryAssumption = DEFAULT_ASSUMPTIONS.find(a => a.id === '5-inh')!;
-  const fallbackAssumption = DEFAULT_ASSUMPTIONS.find(a => a.id === '3-none')!;
+export function CashflowTableCompact({ rows, assumptions }: Props) {
+  const { primary, fallback } = pickPrimaryAndFallback(assumptions);
+  if (!primary || !fallback) return null;
   
   return (
     <div className="space-y-2">
       {rows.map((row) => {
-        const primaryAge = row.results[primaryAssumption.id];
-        const fallbackAge = row.results[fallbackAssumption.id];
+        const primaryAge = row.results[primary.id] ?? 0;
+        const fallbackAge = row.results[fallback.id] ?? 0;
         
         return (
           <div 
@@ -130,14 +151,13 @@ export function CashflowTableCompact({ rows }: Props) {
 // Summary variant (single best/worst)
 // ============================================================================
 
-export function CashflowSummary({ rows }: Props) {
-  const bestCase = DEFAULT_ASSUMPTIONS.find(a => a.id === '5-inh')!;
-  const worstCase = DEFAULT_ASSUMPTIONS.find(a => a.id === '3-none')!;
+export function CashflowSummary({ rows, assumptions }: Props) {
+  const { primary, fallback } = pickPrimaryAndFallback(assumptions);
   
   const currentPath = rows.find(r => r.scenarioId === 'current');
   const fullUpgrade = rows.find(r => r.scenarioId === 'all');
   
-  if (!currentPath || !fullUpgrade) return null;
+  if (!currentPath || !fullUpgrade || !primary || !fallback) return null;
   
   return (
     <div className="grid grid-cols-2 gap-6">
@@ -146,7 +166,7 @@ export function CashflowSummary({ rows }: Props) {
           Current Path (Best Case)
         </p>
         <p className="text-3xl font-semibold text-emerald-700 tabular-nums">
-          {currentPath.results[bestCase.id] >= 100 ? '100+' : currentPath.results[bestCase.id]} years
+          {currentPath.results[primary.id] >= 100 ? '100+' : currentPath.results[primary.id]} years
         </p>
       </div>
       
@@ -155,7 +175,7 @@ export function CashflowSummary({ rows }: Props) {
           Full Upgrade (Conservative)
         </p>
         <p className="text-3xl font-semibold text-amber-700 tabular-nums">
-          {fullUpgrade.results[worstCase.id] >= 100 ? '100+' : fullUpgrade.results[worstCase.id]} years
+          {fullUpgrade.results[fallback.id] >= 100 ? '100+' : fullUpgrade.results[fallback.id]} years
         </p>
       </div>
     </div>

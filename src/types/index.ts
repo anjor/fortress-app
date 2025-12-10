@@ -43,6 +43,9 @@ export interface FortressConfig {
   // Personalization
   personalization: PersonalizationConfig;
 
+  // Scenario selection
+  enabledScenarioIds?: string[];
+
   // Family ages (as of snapshot date)
   partner1BirthYear: number;
   partner2BirthYear: number;
@@ -240,6 +243,7 @@ export interface FortressStore {
   cashflowTable: CashflowTableRow[];
   minimumIncomeTable: MinimumIncomeRow[];
   scenarioCostTable: ScenarioCostTableRow[];
+  assumptions: AssumptionSet[];
 
   // Actions
   updateSnapshot: (input: DataEntryInput) => void;
@@ -330,6 +334,17 @@ export const DEFAULT_ASSUMPTIONS: AssumptionSet[] = [
   { id: '5-invest', name: '5% + Liquidity Event', realReturnRate: 0.05, inflationRate: 0.025, schoolFeeInflation: 0.05, includeInheritance: false, includeInvestmentExit: true },
   { id: '5-both', name: '5% + Inheritance & Liquidity', realReturnRate: 0.05, inflationRate: 0.025, schoolFeeInflation: 0.05, includeInheritance: true, includeInvestmentExit: true },
 ];
+
+export function getActiveAssumptions(config: FortressConfig): AssumptionSet[] {
+  const hasInheritance = (config.inheritanceAmount ?? 0) > 0;
+  const hasLiquidity = (config.investmentExitGross ?? 0) > 0;
+
+  return DEFAULT_ASSUMPTIONS.filter((assumption) => {
+    if (assumption.includeInheritance && !hasInheritance) return false;
+    if (assumption.includeInvestmentExit && !hasLiquidity) return false;
+    return true;
+  });
+}
 
 export const DEFAULT_SCENARIOS: ScenarioDefinition[] = [
   {

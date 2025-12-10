@@ -10,8 +10,9 @@ import type {
   CashflowTableRow,
   ScenarioCostTableRow,
   MinimumIncomeRow,
+  AssumptionSet,
 } from '../types';
-import { DEFAULT_CONFIG, DEFAULT_ASSUMPTIONS } from '../types';
+import { DEFAULT_CONFIG, getActiveAssumptions } from '../types';
 import {
   calculateHeadlineMetrics,
   calculateCashflowTable,
@@ -47,6 +48,7 @@ interface FortressStore {
   cashflowTable: CashflowTableRow[];
   scenarioCostTable: ScenarioCostTableRow[];
   minimumIncomeTable: MinimumIncomeRow[];
+  assumptions: AssumptionSet[];
 
   // Actions
   updateSnapshot: (snapshot: MonthlySnapshot) => { action: 'added' | 'updated'; date: Date };
@@ -68,6 +70,7 @@ export const useFortressStore = create<FortressStore>()(
       cashflowTable: [],
       scenarioCostTable: [],
       minimumIncomeTable: [],
+      assumptions: getActiveAssumptions(DEFAULT_CONFIG),
 
       // Update snapshot and recalculate
       updateSnapshot: (snapshot) => {
@@ -99,10 +102,11 @@ export const useFortressStore = create<FortressStore>()(
 
         // Get previous snapshot for comparison
         const previousSnapshot = newHistory[1] || null;
+        const assumptions = getActiveAssumptions(config);
 
         // Calculate all metrics
         const headlineMetrics = calculateHeadlineMetrics(snapshot, previousSnapshot, config);
-        const cashflowTable = calculateCashflowTable(snapshot, config, undefined, DEFAULT_ASSUMPTIONS, snapshot.date.getFullYear());
+        const cashflowTable = calculateCashflowTable(snapshot, config, undefined, assumptions, snapshot.date.getFullYear());
         const scenarioCostTable = calculateScenarioCostTable(config, undefined, snapshot.date.getFullYear());
         const minimumIncomeTable = calculateMinimumIncomeTable(snapshot, config);
 
@@ -113,6 +117,7 @@ export const useFortressStore = create<FortressStore>()(
           cashflowTable,
           scenarioCostTable,
           minimumIncomeTable,
+          assumptions,
         });
 
         return { action, date: snapshot.date };
@@ -122,8 +127,12 @@ export const useFortressStore = create<FortressStore>()(
       updateConfig: (partialConfig) => {
         const { config, latestSnapshot } = get();
         const newConfig = { ...config, ...partialConfig };
+        const assumptions = getActiveAssumptions(newConfig);
 
-        set({ config: newConfig });
+        set({
+          config: newConfig,
+          ...(latestSnapshot ? {} : { assumptions }),
+        });
 
         // Recalculate if we have data
         if (latestSnapshot) {
@@ -138,9 +147,10 @@ export const useFortressStore = create<FortressStore>()(
         if (!latestSnapshot) return;
 
         const previousSnapshot = snapshotHistory[1] || null;
+        const assumptions = getActiveAssumptions(config);
 
         const headlineMetrics = calculateHeadlineMetrics(latestSnapshot, previousSnapshot, config);
-        const cashflowTable = calculateCashflowTable(latestSnapshot, config, undefined, DEFAULT_ASSUMPTIONS, latestSnapshot.date.getFullYear());
+        const cashflowTable = calculateCashflowTable(latestSnapshot, config, undefined, assumptions, latestSnapshot.date.getFullYear());
         const scenarioCostTable = calculateScenarioCostTable(config, undefined, latestSnapshot.date.getFullYear());
         const minimumIncomeTable = calculateMinimumIncomeTable(latestSnapshot, config);
 
@@ -149,6 +159,7 @@ export const useFortressStore = create<FortressStore>()(
           cashflowTable,
           scenarioCostTable,
           minimumIncomeTable,
+          assumptions,
         });
       },
 
@@ -168,6 +179,7 @@ export const useFortressStore = create<FortressStore>()(
           cashflowTable: [],
           scenarioCostTable: [],
           minimumIncomeTable: [],
+          assumptions: getActiveAssumptions(DEFAULT_CONFIG),
         });
       },
     }),

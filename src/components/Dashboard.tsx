@@ -24,6 +24,7 @@ export function Dashboard() {
   const cashflowTable = useFortressStore(state => state.cashflowTable);
   const minimumIncomeTable = useFortressStore(state => state.minimumIncomeTable);
   const config = useFortressStore(state => state.config);
+  const assumptions = useFortressStore(state => state.assumptions);
   const hasCompletedOnboarding = useFortressStore(state => state.hasCompletedOnboarding);
   React.useEffect(() => {
     if (!hasCompletedOnboarding && !latestSnapshot && !onboardingDismissed) {
@@ -123,7 +124,7 @@ export function Dashboard() {
           </div>
           
           {cashflowTable.length > 0 ? (
-            <CashflowTable rows={cashflowTable} />
+            <CashflowTable rows={cashflowTable} assumptions={assumptions} />
           ) : (
             <EmptyState message="Add your latest snapshot to see projections" />
           )}

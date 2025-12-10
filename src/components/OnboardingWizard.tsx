@@ -1,11 +1,11 @@
 // Fortress - Onboarding Wizard
 // Collects required inputs to answer "to what age will my money last?" and "how much do I need to earn?"
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useFortressStore } from '../store';
 import { calculatePAYETax } from '../lib/calculations';
 
-type Step = 'household' | 'balances' | 'income' | 'expenses' | 'goals' | 'review';
+type Step = 'household' | 'balances' | 'income' | 'expenses' | 'goals' | 'scenarios' | 'review';
 
 interface Props {
   onClose: () => void;
@@ -70,6 +70,62 @@ export function OnboardingWizard({ onClose }: Props) {
     universityYears: (config.universityYears || 4).toString(),
   });
 
+  const availableScenarios = useMemo(() => {
+    const partner2HasIncome = parseAmount(income.partner2GrossAnnual) > 0;
+    const childCount = household.children;
+    const { personalization } = config;
+
+    const scenarios: { id: string; title: string; description: string }[] = [
+      { id: 'baseline', title: 'Baseline (as entered)', description: 'Use your exact inputs.' },
+    ];
+
+    if (partner2HasIncome) {
+      scenarios.push({
+        id: 'partner2-break',
+        title: `${personalization.partner2Name} takes 1 year off`,
+        description: 'Pause Partner 2 income for a year and see the impact.',
+      });
+    }
+
+    scenarios.push({
+      id: 'earlier-retire',
+      title: `${personalization.partner1Name} retires 5 years earlier`,
+      description: 'Stop working 5 years sooner and see how long money lasts.',
+    });
+
+    if (config.houseUpgradeBudget > 0 && config.houseUpgradeBudget !== config.currentHouseValue) {
+      scenarios.push({
+        id: 'house-upgrade',
+        title: 'House move / upgrade',
+        description: 'Add your planned house move and budget to the plan.',
+      });
+    }
+
+    if (childCount > 0) {
+      scenarios.push({
+        id: 'education-supported',
+        title: 'Pay all university costs',
+        description: 'Assume you cover university fees for each child.',
+      });
+    }
+
+    return scenarios;
+  }, [config, household.children, income.partner2GrossAnnual]);
+
+  const [selectedScenarios, setSelectedScenarios] = useState<string[]>(() => availableScenarios.map(s => s.id));
+
+  useEffect(() => {
+    const scenarioIds = availableScenarios.map(s => s.id);
+    setSelectedScenarios(prev => {
+      if (prev.length === 0) return scenarioIds;
+      const filtered = prev.filter(id => scenarioIds.includes(id));
+      if (!filtered.includes('baseline') && scenarioIds.includes('baseline')) {
+        filtered.unshift('baseline');
+      }
+      return filtered.length > 0 ? filtered : scenarioIds;
+    });
+  }, [availableScenarios]);
+
   const totalBalance = useMemo(() => {
     return [
       balances.currentAccounts,
@@ -91,6 +147,7 @@ export function OnboardingWizard({ onClose }: Props) {
     { id: 'income', label: 'Income' },
     { id: 'expenses', label: 'Expenses' },
     { id: 'goals', label: 'Goals' },
+    { id: 'scenarios', label: 'Scenarios' },
     { id: 'review', label: 'Review' },
   ];
 
@@ -161,6 +218,9 @@ export function OnboardingWizard({ onClose }: Props) {
       investmentExitPartner1Age: parseInt(goals.investmentExitPartner1Age, 10) || 45,
       universityAnnualCost: parseAmount(goals.universityAnnualCost),
       universityYears: parseInt(goals.universityYears, 10) || 4,
+      enabledScenarioIds: selectedScenarios.includes('baseline')
+        ? selectedScenarios
+        : ['baseline', ...selectedScenarios],
       personalization: {
         ...config.personalization,
         numberOfChildren: household.children,
@@ -458,6 +518,55 @@ export function OnboardingWizard({ onClose }: Props) {
             </div>
           )}
 
+          {step === 'scenarios' && (
+            <div className="space-y-4">
+              <Section title="Add scenarios to compare">
+                <p className="text-sm text-gray-600 mb-2">
+                  We’ll run these canned scenarios automatically so you can compare trade-offs.
+                </p>
+                <div className="space-y-3">
+                  {availableScenarios.map((scenario) => {
+                    const isSelected = selectedScenarios.includes(scenario.id);
+                    const isRequired = scenario.id === 'baseline';
+                    return (
+                      <label
+                        key={scenario.id}
+                        className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:border-gray-300 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={isRequired}
+                          onChange={() => {
+                            if (isRequired) return;
+                            setSelectedScenarios((prev) => {
+                              if (prev.includes(scenario.id)) {
+                                return prev.filter(id => id !== scenario.id);
+                              }
+                              return [...prev, scenario.id];
+                            });
+                          }}
+                          className="mt-1 w-4 h-4"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-900">{scenario.title}</p>
+                            {isRequired && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                                Always on
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600">{scenario.description}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </Section>
+            </div>
+          )}
+
           {step === 'review' && (
             <div className="space-y-4">
               <Section title="Quick review">
@@ -473,6 +582,7 @@ export function OnboardingWizard({ onClose }: Props) {
                       ? `${goals.fiTargetMultiple}× expenses`
                       : formatCurrency(parseAmount(goals.fiTargetAmount))}
                   </li>
+                  <li>Scenarios added: {selectedScenarios.length}</li>
                 </ul>
               </Section>
               <p className="text-sm text-gray-600">
