@@ -1,24 +1,33 @@
 // Fortress v3 - Living Dashboard
 // The primary view that answers your key questions without interaction
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useFortressStore } from '../store';
 import { HeadlineCards } from './HeadlineCards';
 import { CashflowTable } from './CashflowTable';
 import { MinimumIncomeTable } from './MinimumIncomeTable';
 import { DataEntryModal } from './DataEntryModal';
 import { SettingsModal } from './SettingsModal';
+import { OnboardingWizard } from './OnboardingWizard';
 import { RefreshCw, Settings, Download } from 'lucide-react';
 
 export function Dashboard() {
   const [showDataEntry, setShowDataEntry] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   const latestSnapshot = useFortressStore(state => state.latestSnapshot);
   const headlineMetrics = useFortressStore(state => state.headlineMetrics);
   const cashflowTable = useFortressStore(state => state.cashflowTable);
   const minimumIncomeTable = useFortressStore(state => state.minimumIncomeTable);
   const config = useFortressStore(state => state.config);
+  const hasCompletedOnboarding = useFortressStore(state => state.hasCompletedOnboarding);
+  React.useEffect(() => {
+    if (!hasCompletedOnboarding && !latestSnapshot && !onboardingDismissed) {
+      setShowOnboarding(true);
+    }
+  }, [hasCompletedOnboarding, latestSnapshot, onboardingDismissed]);
 
   const hasSnapshot = Boolean(latestSnapshot);
   const lastUpdated = latestSnapshot?.date
@@ -85,6 +94,7 @@ export function Dashboard() {
           <OnboardingPanel
             onAddSnapshot={() => setShowDataEntry(true)}
             onOpenSettings={() => setShowConfig(true)}
+            onStartOnboarding={() => setShowOnboarding(true)}
           />
         )}
         
@@ -167,6 +177,10 @@ export function Dashboard() {
       {showConfig && (
         <SettingsModal onClose={() => setShowConfig(false)} />
       )}
+
+      {(showOnboarding || !hasCompletedOnboarding) && (
+        <OnboardingWizard onClose={() => { setShowOnboarding(false); setOnboardingDismissed(true); }} />
+      )}
     </div>
   );
 }
@@ -179,7 +193,15 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function OnboardingPanel({ onAddSnapshot, onOpenSettings }: { onAddSnapshot: () => void; onOpenSettings: () => void }) {
+function OnboardingPanel({
+  onAddSnapshot,
+  onOpenSettings,
+  onStartOnboarding,
+}: {
+  onAddSnapshot: () => void;
+  onOpenSettings: () => void;
+  onStartOnboarding: () => void;
+}) {
   return (
     <section className="p-6 border border-gray-200 rounded-xl bg-gray-50">
       <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Start here</p>
@@ -216,6 +238,12 @@ function OnboardingPanel({ onAddSnapshot, onOpenSettings }: { onAddSnapshot: () 
         >
           <Settings className="w-4 h-4" />
           Open settings
+        </button>
+        <button
+          onClick={onStartOnboarding}
+          className="flex items-center gap-2 px-4 py-2 text-gray-700 text-sm font-medium border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
+        >
+          Start guided onboarding
         </button>
         <p className="text-xs text-gray-500">
           Once saved, projections unlock headline metrics, “money lasts to age” and “income needed” tables.
