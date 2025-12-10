@@ -9,6 +9,7 @@ import { MinimumIncomeTable } from './MinimumIncomeTable';
 import { DataEntryModal } from './DataEntryModal';
 import { SettingsModal } from './SettingsModal';
 import { OnboardingWizard } from './OnboardingWizard';
+import { MethodologyModal } from './MethodologyModal';
 import { RefreshCw, Settings, Download } from 'lucide-react';
 
 export function Dashboard() {
@@ -16,6 +17,7 @@ export function Dashboard() {
   const [showConfig, setShowConfig] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [showMethodology, setShowMethodology] = useState(false);
 
   const latestSnapshot = useFortressStore(state => state.latestSnapshot);
   const headlineMetrics = useFortressStore(state => state.headlineMetrics);
@@ -83,6 +85,12 @@ export function Dashboard() {
               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
             >
               <Settings className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowMethodology(true)}
+              className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
+            >
+              Methodology
             </button>
           </div>
         </div>
@@ -180,6 +188,10 @@ export function Dashboard() {
 
       {(showOnboarding || !hasCompletedOnboarding) && (
         <OnboardingWizard onClose={() => { setShowOnboarding(false); setOnboardingDismissed(true); }} />
+      )}
+
+      {showMethodology && (
+        <MethodologyModal onClose={() => setShowMethodology(false)} />
       )}
     </div>
   );
