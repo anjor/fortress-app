@@ -2,7 +2,7 @@
 // State management for the FI planning dashboard
 
 import { create } from 'zustand';
-import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   MonthlySnapshot,
   FortressConfig,
@@ -10,9 +10,8 @@ import type {
   CashflowTableRow,
   ScenarioCostTableRow,
   MinimumIncomeRow,
-  PersonalizationConfig,
 } from '../types';
-import { DEFAULT_CONFIG, DEFAULT_SCENARIOS, DEFAULT_ASSUMPTIONS, DEFAULT_PERSONALIZATION } from '../types';
+import { DEFAULT_CONFIG, DEFAULT_ASSUMPTIONS } from '../types';
 import {
   calculateHeadlineMetrics,
   calculateCashflowTable,
@@ -103,8 +102,8 @@ export const useFortressStore = create<FortressStore>()(
 
         // Calculate all metrics
         const headlineMetrics = calculateHeadlineMetrics(snapshot, previousSnapshot, config);
-        const cashflowTable = calculateCashflowTable(snapshot, config, DEFAULT_SCENARIOS, DEFAULT_ASSUMPTIONS);
-        const scenarioCostTable = calculateScenarioCostTable(config, DEFAULT_SCENARIOS);
+        const cashflowTable = calculateCashflowTable(snapshot, config, undefined, DEFAULT_ASSUMPTIONS, snapshot.date.getFullYear());
+        const scenarioCostTable = calculateScenarioCostTable(config, undefined, snapshot.date.getFullYear());
         const minimumIncomeTable = calculateMinimumIncomeTable(snapshot, config);
 
         set({
@@ -141,8 +140,8 @@ export const useFortressStore = create<FortressStore>()(
         const previousSnapshot = snapshotHistory[1] || null;
 
         const headlineMetrics = calculateHeadlineMetrics(latestSnapshot, previousSnapshot, config);
-        const cashflowTable = calculateCashflowTable(latestSnapshot, config, DEFAULT_SCENARIOS, DEFAULT_ASSUMPTIONS);
-        const scenarioCostTable = calculateScenarioCostTable(config, DEFAULT_SCENARIOS);
+        const cashflowTable = calculateCashflowTable(latestSnapshot, config, undefined, DEFAULT_ASSUMPTIONS, latestSnapshot.date.getFullYear());
+        const scenarioCostTable = calculateScenarioCostTable(config, undefined, latestSnapshot.date.getFullYear());
         const minimumIncomeTable = calculateMinimumIncomeTable(latestSnapshot, config);
 
         set({

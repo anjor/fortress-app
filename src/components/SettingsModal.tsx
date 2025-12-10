@@ -1,7 +1,7 @@
 // Fortress v2 - Settings Modal
 // Configure family birthdates, working ages, and FI target
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Settings, Check } from 'lucide-react';
 import { useFortressStore } from '../store';
 import type { FortressConfig } from '../types';

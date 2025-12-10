@@ -1,7 +1,6 @@
 // Fortress v2 - Scenario Cost Table
 // Shows the incremental cost of each scenario compared to baseline
 
-import React from 'react';
 import type { ScenarioCostTableRow } from '../types';
 
 interface Props {

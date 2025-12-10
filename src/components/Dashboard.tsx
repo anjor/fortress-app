@@ -1,7 +1,7 @@
 // Fortress v3 - Living Dashboard
 // The primary view that answers your key questions without interaction
 
-import React, { useMemo } from 'react';
+import { useState } from 'react';
 import { useFortressStore } from '../store';
 import { HeadlineCards } from './HeadlineCards';
 import { CashflowTable } from './CashflowTable';
@@ -11,8 +11,8 @@ import { SettingsModal } from './SettingsModal';
 import { RefreshCw, Settings, Download } from 'lucide-react';
 
 export function Dashboard() {
-  const [showDataEntry, setShowDataEntry] = React.useState(false);
-  const [showConfig, setShowConfig] = React.useState(false);
+  const [showDataEntry, setShowDataEntry] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
 
   const latestSnapshot = useFortressStore(state => state.latestSnapshot);
   const headlineMetrics = useFortressStore(state => state.headlineMetrics);
@@ -20,6 +20,7 @@ export function Dashboard() {
   const minimumIncomeTable = useFortressStore(state => state.minimumIncomeTable);
   const config = useFortressStore(state => state.config);
 
+  const hasSnapshot = Boolean(latestSnapshot);
   const lastUpdated = latestSnapshot?.date
     ? new Date(latestSnapshot.date).toLocaleDateString('en-GB', {
         day: 'numeric',
@@ -80,6 +81,12 @@ export function Dashboard() {
       
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-12">
+        {!hasSnapshot && (
+          <OnboardingPanel
+            onAddSnapshot={() => setShowDataEntry(true)}
+            onOpenSettings={() => setShowConfig(true)}
+          />
+        )}
         
         {/* Headline Metrics */}
         {headlineMetrics && (
@@ -169,6 +176,52 @@ function EmptyState({ message }: { message: string }) {
     <div className="py-12 text-center border border-dashed border-gray-200 rounded-lg">
       <p className="text-sm text-gray-400">{message}</p>
     </div>
+  );
+}
+
+function OnboardingPanel({ onAddSnapshot, onOpenSettings }: { onAddSnapshot: () => void; onOpenSettings: () => void }) {
+  return (
+    <section className="p-6 border border-gray-200 rounded-xl bg-gray-50">
+      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Start here</p>
+      <h2 className="text-lg font-semibold text-gray-900 mb-2">Tell us about your household</h2>
+      <p className="text-sm text-gray-600 mb-4">
+        Capture one baseline snapshot (balances + YTD spending) and sanity-check the settings for family, work,
+        and FI target. We handle singles, couples, limited companies, and up to four children.
+      </p>
+      <div className="grid md:grid-cols-3 gap-3 text-sm mb-4">
+        <div className="p-3 bg-white rounded-lg border border-gray-200">
+          <p className="font-medium text-gray-900 mb-1">1) Balances</p>
+          <p className="text-gray-600">Current/savings, ISAs, pensions, taxable, property, business, investment company.</p>
+        </div>
+        <div className="p-3 bg-white rounded-lg border border-gray-200">
+          <p className="font-medium text-gray-900 mb-1">2) Inflows</p>
+          <p className="text-gray-600">Business or PAYE income, partner income (optional), and any windfalls.</p>
+        </div>
+        <div className="p-3 bg-white rounded-lg border border-gray-200">
+          <p className="font-medium text-gray-900 mb-1">3) Outflows & goals</p>
+          <p className="text-gray-600">Personal + business expenses YTD, FI number (multiplier or fixed), working ages.</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <button
+          onClick={onAddSnapshot}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Add first snapshot
+        </button>
+        <button
+          onClick={onOpenSettings}
+          className="flex items-center gap-2 px-4 py-2 text-gray-700 text-sm font-medium border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
+        >
+          <Settings className="w-4 h-4" />
+          Open settings
+        </button>
+        <p className="text-xs text-gray-500">
+          Once saved, projections unlock headline metrics, “money lasts to age” and “income needed” tables.
+        </p>
+      </div>
+    </section>
   );
 }
 

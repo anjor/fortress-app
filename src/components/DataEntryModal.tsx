@@ -1,10 +1,10 @@
 // Fortress v3 - Data Entry Modal
 // Monthly workflow: paste from Google Sheets, enter revenue/expenses
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, ClipboardPaste, Check } from 'lucide-react';
 import { useFortressStore } from '../store';
-import type { MonthlySnapshot, FortressConfig } from '../types';
+import type { MonthlySnapshot } from '../types';
 import { formatMonthYear } from '../lib/date-utils';
 
 interface Props {
@@ -17,10 +17,26 @@ export function DataEntryModal({ onClose }: Props) {
   const [pastedData, setPastedData] = useState('');
   const [parsedSnapshot, setParsedSnapshot] = useState<Partial<MonthlySnapshot> | null>(null);
   const [revenue, setRevenue] = useState('');
+  const [partnerIncome, setPartnerIncome] = useState('');
   const [personalExpenses, setPersonalExpenses] = useState('');
   const [businessExpenses, setBusinessExpenses] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [updateAction, setUpdateAction] = useState<'added' | 'updated' | null>(null);
+  const [manualDate, setManualDate] = useState(formatInputDate(new Date()));
+  const [manualValues, setManualValues] = useState({
+    currentAccounts: '',
+    savingsAccounts: '',
+    isas: '',
+    pensions: '',
+    taxableAccounts: '',
+    houseEquity: '',
+    businessAssets: '',
+    investmentAssets: '',
+    total: '',
+  });
+  const updateManualValue = (key: keyof typeof manualValues, value: string) => {
+    setManualValues(prev => ({ ...prev, [key]: value }));
+  };
 
   const updateSnapshot = useFortressStore(state => state.updateSnapshot);
   
@@ -52,30 +68,79 @@ export function DataEntryModal({ onClose }: Props) {
       setError(null);
     }
   };
+
+  const buildManualSnapshot = (): Partial<MonthlySnapshot> => {
+    const totalFromFields =
+      parseAmount(manualValues.total) ||
+      ['currentAccounts', 'savingsAccounts', 'isas', 'pensions', 'taxableAccounts', 'houseEquity', 'businessAssets', 'investmentAssets']
+        .map((key) => parseAmount((manualValues as any)[key]))
+        .reduce((acc, val) => acc + val, 0);
+
+    return {
+      date: manualDate ? new Date(manualDate) : new Date(),
+      currentAccounts: parseAmount(manualValues.currentAccounts),
+      savingsAccounts: parseAmount(manualValues.savingsAccounts),
+      isas: parseAmount(manualValues.isas),
+      pensions: parseAmount(manualValues.pensions),
+      taxableAccounts: parseAmount(manualValues.taxableAccounts),
+      houseEquity: parseAmount(manualValues.houseEquity),
+      businessAssets: parseAmount(manualValues.businessAssets),
+      investmentAssets: parseAmount(manualValues.investmentAssets),
+      total: totalFromFields,
+    };
+  };
+
+  const handleManualContinue = () => {
+    const snapshot = buildManualSnapshot();
+    setParsedSnapshot(snapshot);
+    setError(null);
+    setStep('review');
+  };
+
+  const calculateManualTotal = () => buildManualSnapshot().total || 0;
   
   const handleSave = () => {
-    if (!parsedSnapshot) return;
+    const snapshotSource = parsedSnapshot ?? buildManualSnapshot();
+    const deriveTotal = () => {
+      if (snapshotSource.total && snapshotSource.total > 0) return snapshotSource.total;
+      return (
+        (snapshotSource.currentAccounts || 0) +
+        (snapshotSource.savingsAccounts || 0) +
+        (snapshotSource.isas || 0) +
+        (snapshotSource.pensions || 0) +
+        (snapshotSource.taxableAccounts || 0) +
+        (snapshotSource.houseEquity || 0) +
+        (snapshotSource.businessAssets || 0) +
+        (snapshotSource.investmentAssets || 0)
+      );
+    };
 
     const snapshot: MonthlySnapshot = {
       id: crypto.randomUUID(),
-      date: parsedSnapshot.date || new Date(),
-      currentAccounts: parsedSnapshot.currentAccounts || 0,
-      savingsAccounts: parsedSnapshot.savingsAccounts || 0,
-      isas: parsedSnapshot.isas || 0,
-      pensions: parsedSnapshot.pensions || 0,
-      taxableAccounts: parsedSnapshot.taxableAccounts || 0,
-      houseEquity: parsedSnapshot.houseEquity || 0,
-      businessAssets: parsedSnapshot.businessAssets || 0,
-      investmentAssets: parsedSnapshot.investmentAssets || 0,
-      total: parsedSnapshot.total || 0,
+      date: snapshotSource.date || new Date(),
+      currentAccounts: snapshotSource.currentAccounts || 0,
+      savingsAccounts: snapshotSource.savingsAccounts || 0,
+      isas: snapshotSource.isas || 0,
+      pensions: snapshotSource.pensions || 0,
+      taxableAccounts: snapshotSource.taxableAccounts || 0,
+      houseEquity: snapshotSource.houseEquity || 0,
+      businessAssets: snapshotSource.businessAssets || 0,
+      investmentAssets: snapshotSource.investmentAssets || 0,
+      total: deriveTotal(),
       businessRevenueYTD: parseFloat(revenue.replace(/[£,]/g, '')) || 0,
-      partner2IncomeYTD: 0,  // Calculated from config
+      partner2IncomeYTD: parseFloat(partnerIncome.replace(/[£,]/g, '')) || 0,
       personalExpensesYTD: parseFloat(personalExpenses.replace(/[£,]/g, '')) || 0,
       businessExpensesYTD: parseFloat(businessExpenses.replace(/[£,]/g, '')) || 0,
       totalExpensesYTD: (parseFloat(personalExpenses.replace(/[£,]/g, '')) || 0) +
                         (parseFloat(businessExpenses.replace(/[£,]/g, '')) || 0)
     };
 
+    if (snapshot.total === 0) {
+      setError('Please enter your balances before saving.');
+      return;
+    }
+
+    setError(null);
     const result = updateSnapshot(snapshot);
     setUpdateAction(result.action);
     setStep('done');
@@ -99,46 +164,115 @@ export function DataEntryModal({ onClose }: Props) {
         {/* Content */}
         <div className="px-6 py-6">
           {step === 'paste' && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Copy the latest row from your Net Worth Tracker spreadsheet, then paste here.
-              </p>
-              
-              <button
-                onClick={handlePaste}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                <ClipboardPaste className="w-4 h-4" />
-                Paste from Clipboard
-              </button>
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-400">or paste manually</span>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  Enter your balances by account and your YTD inflows/outflows. This works for single or joint households,
+                  with or without a business or investment company.
+                </p>
+                <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="font-medium text-gray-800 mb-1">What to include</p>
+                  <ul className="space-y-1 list-disc list-inside">
+                    <li>Balances: current, savings, ISAs, pensions, taxable (GIA), property equity, business assets, investment company assets.</li>
+                    <li>Inflows: business revenue or PAYE salary, partner income (optional).</li>
+                    <li>Outflows: personal and business expenses YTD (estimates fine).</li>
+                  </ul>
                 </div>
               </div>
-              
-              <textarea
-                value={pastedData}
-                onChange={handleManualPaste}
-                placeholder="02/12/2025&#9;£19,248&#9;£62,518&#9;..."
-                className="w-full h-24 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent font-mono"
-              />
-              
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Snapshot date</label>
+                  <input
+                    type="date"
+                    value={manualDate}
+                      onChange={(e) => setManualDate(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { key: 'currentAccounts', label: 'Current accounts' },
+                      { key: 'savingsAccounts', label: 'Savings' },
+                      { key: 'isas', label: 'ISAs' },
+                      { key: 'pensions', label: 'Pensions' },
+                      { key: 'taxableAccounts', label: 'Taxable investments (GIA)' },
+                      { key: 'houseEquity', label: 'Property equity' },
+                      { key: 'businessAssets', label: `${config.personalization.businessName} assets` },
+                      { key: 'investmentAssets', label: `${config.personalization.investmentName} assets` },
+                    ].map((field) => (
+                      <div key={field.key}>
+                        <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+                        <input
+                          type="text"
+                          value={(manualValues as any)[field.key]}
+                          onChange={(e) => updateManualValue(field.key as keyof typeof manualValues, e.target.value)}
+                          placeholder="£0"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Total (optional override)</label>
+                    <input
+                      type="text"
+                      value={manualValues.total}
+                      onChange={(e) => updateManualValue('total', e.target.value)}
+                      placeholder="Auto-calculated from above"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-600 flex items-center justify-between">
+                    <span>Calculated total</span>
+                    <span className="font-medium text-gray-900 tabular-nums">
+                      {formatCurrency(calculateManualTotal())}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={handleManualContinue}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    Review snapshot →
+                  </button>
+                </div>
+
+              <div className="space-y-2 border-t border-gray-100 pt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-800">Prefer to paste a row?</p>
+                  <button
+                    onClick={handlePaste}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 hover:border-gray-300"
+                  >
+                    <ClipboardPaste className="w-4 h-4" />
+                    Paste from Clipboard
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Schema: <code>Date | Current | Savings | ISAs | Pensions | Taxable | Property Equity | Business Assets | Investment Assets | Total</code>
+                </p>
+                <textarea
+                  value={pastedData}
+                  onChange={handleManualPaste}
+                  placeholder="02/12/2025&#9;£19,248&#9;£62,518&#9;£614,271&#9;£885,576&#9;£513,808&#9;£474,514&#9;£166,140&#9;£999,599&#9;£3,735,674"
+                  className="w-full h-24 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent font-mono"
+                />
+                {parsedSnapshot && (
+                  <button
+                    onClick={() => setStep('review')}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    Continue with pasted row →
+                  </button>
+                )}
+              </div>
+
               {error && (
                 <p className="text-sm text-red-600">{error}</p>
-              )}
-              
-              {parsedSnapshot && (
-                <button
-                  onClick={() => setStep('review')}
-                  className="w-full px-4 py-2 text-sm font-medium text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50"
-                >
-                  Continue →
-                </button>
               )}
             </div>
           )}
@@ -154,8 +288,8 @@ export function DataEntryModal({ onClose }: Props) {
                   <DataRow label="Savings" value={formatCurrency(parsedSnapshot.savingsAccounts || 0)} />
                   <DataRow label="ISAs" value={formatCurrency(parsedSnapshot.isas || 0)} />
                   <DataRow label="Pensions" value={formatCurrency(parsedSnapshot.pensions || 0)} />
-                  <DataRow label="GIA" value={formatCurrency(parsedSnapshot.taxableAccounts || 0)} />
-                  <DataRow label="House Equity" value={formatCurrency(parsedSnapshot.houseEquity || 0)} />
+                  <DataRow label="Taxable (GIA)" value={formatCurrency(parsedSnapshot.taxableAccounts || 0)} />
+                  <DataRow label="Property Equity" value={formatCurrency(parsedSnapshot.houseEquity || 0)} />
                   <DataRow label={config.personalization.businessName} value={formatCurrency(parsedSnapshot.businessAssets || 0)} />
                   <DataRow label={config.personalization.investmentName} value={formatCurrency(parsedSnapshot.investmentAssets || 0)} />
                 </div>
@@ -170,7 +304,17 @@ export function DataEntryModal({ onClose }: Props) {
                       type="text"
                       value={revenue}
                       onChange={(e) => setRevenue(e.target.value)}
-                      placeholder="£526,259"
+                      placeholder="£120,000"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">{config.personalization.partner2Name} Income YTD (take-home)</label>
+                    <input
+                      type="text"
+                      value={partnerIncome}
+                      onChange={(e) => setPartnerIncome(e.target.value)}
+                      placeholder="£35,000"
                       className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
                   </div>
@@ -181,7 +325,7 @@ export function DataEntryModal({ onClose }: Props) {
                         type="text"
                         value={personalExpenses}
                         onChange={(e) => setPersonalExpenses(e.target.value)}
-                        placeholder="£126,515"
+                        placeholder="£40,000"
                         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                       />
                     </div>
@@ -191,7 +335,7 @@ export function DataEntryModal({ onClose }: Props) {
                         type="text"
                         value={businessExpenses}
                         onChange={(e) => setBusinessExpenses(e.target.value)}
-                        placeholder="£42,829"
+                        placeholder="£15,000"
                         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                       />
                     </div>
@@ -205,6 +349,10 @@ export function DataEntryModal({ onClose }: Props) {
               >
                 Save & Recalculate
               </button>
+
+              {error && (
+                <p className="text-sm text-red-600">{error}</p>
+              )}
             </div>
           )}
           
@@ -233,6 +381,13 @@ export function DataEntryModal({ onClose }: Props) {
 // Data Parsing
 // ============================================================================
 
+function parseAmount(str: string): number {
+  if (!str) return 0;
+  const cleaned = str.replace(/[£$,\s]/g, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
 function parseNetWorthRow(text: string): Partial<MonthlySnapshot> | null {
   // Expected format (tab-separated from Google Sheets):
   // Date | Current | Savings | ISAs | Pensions | Taxable | House | Business | Investment | Total
@@ -256,13 +411,6 @@ function parseNetWorthRow(text: string): Partial<MonthlySnapshot> | null {
   if (parts.length < 10) {
     return null;
   }
-
-  const parseAmount = (str: string): number => {
-    if (!str) return 0;
-    const cleaned = str.replace(/[£$,\s]/g, '');
-    const num = parseFloat(cleaned);
-    return isNaN(num) ? 0 : num;
-  };
 
   const parseDate = (str: string): Date => {
     if (!str) return new Date();
@@ -323,6 +471,10 @@ function formatDate(date: Date | undefined): string {
     month: 'short',
     year: 'numeric',
   });
+}
+
+function formatInputDate(date: Date): string {
+  return new Date(date).toISOString().split('T')[0];
 }
 
 export default DataEntryModal;

@@ -13,7 +13,7 @@ import type {
   ScenarioCostTableRow,
   MinimumIncomeRow,
 } from '../types';
-import { DEFAULT_ASSUMPTIONS, DEFAULT_SCENARIOS } from '../types';
+import { DEFAULT_ASSUMPTIONS } from '../types';
 import { calculateOptimalExtraction } from './uk-tax';
 
 // ============================================================================
@@ -80,10 +80,13 @@ export function calculateCashflowTable(
   snapshot: MonthlySnapshot,
   config: FortressConfig,
   scenarios?: ScenarioDefinition[],
-  assumptions: AssumptionSet[] = DEFAULT_ASSUMPTIONS
+  assumptions: AssumptionSet[] = DEFAULT_ASSUMPTIONS,
+  currentYear?: number
 ): CashflowTableRow[] {
-  // Generate scenarios from config if not provided
-  const scenariosToRun = scenarios ?? generateScenariosFromConfig(config);
+  const planYear = currentYear ?? snapshot.date.getFullYear();
+  const scenariosToRun = (scenarios && scenarios.length > 0)
+    ? scenarios
+    : generateScenariosFromConfig(config, planYear);
   return scenariosToRun.map(scenario => {
     const results: { [assumptionId: string]: number } = {};
 
@@ -106,20 +109,36 @@ export function calculateCashflowTable(
 
 export function calculateScenarioCostTable(
   config: FortressConfig,
-  scenarios?: ScenarioDefinition[]
+  scenarios?: ScenarioDefinition[],
+  currentYear?: number
 ): ScenarioCostTableRow[] {
-  const scenariosToRun = scenarios ?? generateScenariosFromConfig(config);
+  const planYear = currentYear ?? new Date().getFullYear();
+  const scenariosToRun = (scenarios && scenarios.length > 0)
+    ? scenarios
+    : generateScenariosFromConfig(config, planYear);
+
+  const baseline = scenariosToRun[0];
+  const childCount = getChildBirthYears(config).length;
 
   return scenariosToRun.map(scenario => {
     let extraCost = 0;
 
+    // Partner 1 lost income relative to baseline working years
+    if (baseline) {
+      const baselineYears = Math.max((baseline.partner1WorksUntilAge ?? 0) - (planYear - config.partner1BirthYear), 0);
+      const scenarioYears = Math.max((scenario.partner1WorksUntilAge ?? 0) - (planYear - config.partner1BirthYear), 0);
+      if (scenarioYears < baselineYears) {
+        extraCost += (baselineYears - scenarioYears) * scenario.partner1AnnualRevenue;
+      }
+    }
+
     // Career break cost: Lost partner 2 income
     if (scenario.partner2BreakYears > 0) {
       extraCost += scenario.partner2BreakYears * config.partner2GrossAnnual;
-    } else if (scenario.partner2WorksUntilAge < (config.partner2WorksUntilAge ?? 50)) {
-      // Indefinite break: calculate lost income from early retirement
-      const baselineRetirementAge = config.partner2WorksUntilAge ?? 50;
-      const yearsLost = baselineRetirementAge - scenario.partner2WorksUntilAge;
+    } else if (baseline && scenario.partner2WorksUntilAge < baseline.partner2WorksUntilAge) {
+      const baselineYears = Math.max(baseline.partner2WorksUntilAge - (planYear - config.partner2BirthYear), 0);
+      const scenarioYears = Math.max(scenario.partner2WorksUntilAge - (planYear - config.partner2BirthYear), 0);
+      const yearsLost = Math.max(baselineYears - scenarioYears, 0);
       extraCost += yearsLost * config.partner2GrossAnnual;
     }
 
@@ -128,9 +147,9 @@ export function calculateScenarioCostTable(
       extraCost += config.houseUpgradeBudget;
     }
 
-    // University cost: 2 kids × 4 years × annual cost
+    // University cost: children × years × annual cost
     if (scenario.includeUniversity) {
-      const totalUniversityCost = 2 * config.universityYears * config.universityAnnualCost;
+      const totalUniversityCost = childCount * config.universityYears * config.universityAnnualCost;
       extraCost += totalUniversityCost;
     }
 
@@ -138,7 +157,7 @@ export function calculateScenarioCostTable(
       scenarioId: scenario.id,
       scenarioName: scenario.name,
       extraCost,
-      isBaseline: scenario.id === 'current',
+      isBaseline: scenario.id === 'baseline',
     };
   });
 }
@@ -147,21 +166,25 @@ export function calculateScenarioCostTable(
  * Generate scenario presets using current config values
  * This makes scenarios dynamic instead of hardcoded
  */
-function generateScenariosFromConfig(config: FortressConfig): ScenarioDefinition[] {
-  // Determine Partner 1's annual revenue based on income mode
+function generateScenariosFromConfig(config: FortressConfig, currentYear: number): ScenarioDefinition[] {
   const partner1Revenue = config.partner1IncomeMode === 'business'
     ? config.partner1BusinessRevenue
     : config.partner1EmployedSalary;
 
-  // Use config working ages as defaults (with fallback to 50)
-  const defaultPartner1Age = config.partner1WorksUntilAge ?? 50;
-  const defaultPartner2Age = config.partner2WorksUntilAge ?? 50;
+  const defaultPartner1Age = config.partner1WorksUntilAge ?? 60;
+  const defaultPartner2Age = config.partner2GrossAnnual > 0
+    ? config.partner2WorksUntilAge ?? 60
+    : 0;
 
-  return [
+  const children = getChildBirthYears(config);
+  const breakStartYear = currentYear + 1;
+  const earlyRetireAge = Math.max(defaultPartner1Age - 5, currentYear - config.partner1BirthYear + 1);
+
+  const scenarios: ScenarioDefinition[] = [
     {
-      id: 'current',
-      name: 'Current Path',
-      shortName: 'Current',
+      id: 'baseline',
+      name: 'Baseline (as entered)',
+      shortName: 'Baseline',
       partner1WorksUntilAge: defaultPartner1Age,
       partner2WorksUntilAge: defaultPartner2Age,
       partner1AnnualRevenue: partner1Revenue,
@@ -169,77 +192,61 @@ function generateScenariosFromConfig(config: FortressConfig): ScenarioDefinition
       partner2BreakStartYear: 0,
       includeHouseUpgrade: false,
       houseUpgradeYear: 0,
-      includeUniversity: false,
+      includeUniversity: children.length > 0,
     },
-    {
-      id: 'partner2-1yr',
-      name: '+ Partner 2 1-year break',
-      shortName: '+1yr break',
+  ];
+
+  if (config.partner2GrossAnnual > 0) {
+    scenarios.push({
+      id: 'partner2-break',
+      name: `${config.personalization.partner2Name} takes 1 year off`,
+      shortName: 'Partner break',
       partner1WorksUntilAge: defaultPartner1Age,
       partner2WorksUntilAge: defaultPartner2Age,
       partner1AnnualRevenue: partner1Revenue,
       partner2BreakYears: 1,
-      partner2BreakStartYear: 2025,
+      partner2BreakStartYear: breakStartYear,
       includeHouseUpgrade: false,
       houseUpgradeYear: 0,
-      includeUniversity: false,
-    },
-    {
-      id: 'partner2-2yr',
-      name: '+ Partner 2 2-year break',
-      shortName: '+2yr break',
-      partner1WorksUntilAge: defaultPartner1Age,
-      partner2WorksUntilAge: defaultPartner2Age,
-      partner1AnnualRevenue: partner1Revenue,
-      partner2BreakYears: 2,
-      partner2BreakStartYear: 2025,
-      includeHouseUpgrade: false,
-      houseUpgradeYear: 0,
-      includeUniversity: false,
-    },
-    {
-      id: 'partner2-3yr',
-      name: '+ Partner 2 3-year break',
-      shortName: '+3yr break',
-      partner1WorksUntilAge: defaultPartner1Age,
-      partner2WorksUntilAge: defaultPartner2Age,
-      partner1AnnualRevenue: partner1Revenue,
-      partner2BreakYears: 3,
-      partner2BreakStartYear: 2025,
-      includeHouseUpgrade: false,
-      houseUpgradeYear: 0,
-      includeUniversity: false,
-    },
-    {
-      id: 'partner2-indefinite',
-      name: '+ Partner 2 indefinite break',
-      shortName: '+Indefinite',
-      partner1WorksUntilAge: defaultPartner1Age,
-      partner2WorksUntilAge: 39,  // Stops working in 2025
-      partner1AnnualRevenue: partner1Revenue,
-      partner2BreakYears: 0,
-      partner2BreakStartYear: 0,
-      includeHouseUpgrade: false,
-      houseUpgradeYear: 0,
-      includeUniversity: false,
-    },
-    {
-      id: 'house',
-      name: '+ House upgrade (£1.5m)',
-      shortName: '+House',
+      includeUniversity: children.length > 0,
+    });
+  }
+
+  scenarios.push({
+    id: 'earlier-retire',
+    name: `${config.personalization.partner1Name} retires 5 years earlier`,
+    shortName: 'Early retire',
+    partner1WorksUntilAge: earlyRetireAge,
+    partner2WorksUntilAge: defaultPartner2Age,
+    partner1AnnualRevenue: partner1Revenue,
+    partner2BreakYears: 0,
+    partner2BreakStartYear: 0,
+    includeHouseUpgrade: false,
+    houseUpgradeYear: 0,
+    includeUniversity: children.length > 0,
+  });
+
+  if (config.houseUpgradeBudget > 0 && config.houseUpgradeBudget !== config.currentHouseValue) {
+    scenarios.push({
+      id: 'house-upgrade',
+      name: 'House move / upgrade',
+      shortName: 'House move',
       partner1WorksUntilAge: defaultPartner1Age,
       partner2WorksUntilAge: defaultPartner2Age,
       partner1AnnualRevenue: partner1Revenue,
       partner2BreakYears: 0,
       partner2BreakStartYear: 0,
       includeHouseUpgrade: true,
-      houseUpgradeYear: 2026,
-      includeUniversity: false,
-    },
-    {
-      id: 'university',
-      name: '+ University (2 kids)',
-      shortName: '+University',
+      houseUpgradeYear: currentYear + 2,
+      includeUniversity: children.length > 0,
+    });
+  }
+
+  if (children.length > 0) {
+    scenarios.push({
+      id: 'education-supported',
+      name: 'Pay all university costs',
+      shortName: 'University',
       partner1WorksUntilAge: defaultPartner1Age,
       partner2WorksUntilAge: defaultPartner2Age,
       partner1AnnualRevenue: partner1Revenue,
@@ -248,21 +255,10 @@ function generateScenariosFromConfig(config: FortressConfig): ScenarioDefinition
       includeHouseUpgrade: false,
       houseUpgradeYear: 0,
       includeUniversity: true,
-    },
-    {
-      id: 'all',
-      name: 'All upgrades combined',
-      shortName: 'Full',
-      partner1WorksUntilAge: defaultPartner1Age,
-      partner2WorksUntilAge: 39,  // Use indefinite break
-      partner1AnnualRevenue: partner1Revenue,
-      partner2BreakYears: 0,
-      partner2BreakStartYear: 0,
-      includeHouseUpgrade: true,
-      houseUpgradeYear: 2026,
-      includeUniversity: true,
-    },
-  ];
+    });
+  }
+
+  return scenarios;
 }
 
 // ============================================================================
@@ -275,7 +271,7 @@ export function calculateMinimumIncomeTable(
 ): MinimumIncomeRow[] {
   const assumptionsNoWindfalls = DEFAULT_ASSUMPTIONS.find(a => a.id === '5-none')!;
   const assumptionsWithWindfalls = DEFAULT_ASSUMPTIONS.find(a => a.id === '5-both')!;
-  const retirementAge = config.partner1WorksUntilAge ?? 50;
+  const retirementAge = config.partner1WorksUntilAge ?? 60;
 
   return [
     {
@@ -370,6 +366,7 @@ export function runScenarioToExhaustion(
 ): ScenarioResult {
   const currentYear = snapshot.date.getFullYear();
   const partner1Age = currentYear - config.partner1BirthYear;
+  const childrenBirthYears = getChildBirthYears(config);
   
   // Starting assets (liquid only - pensions accessed later)
   let liquidAssets = snapshot.isas + snapshot.taxableAccounts + 
@@ -391,8 +388,7 @@ export function runScenarioToExhaustion(
   for (let age = partner1Age; age <= 100; age++) {
     const year = config.partner1BirthYear + age;
     const partner2Age = age - (config.partner1BirthYear - config.partner2BirthYear);
-    const child1Age = year - config.child1BirthYear;
-    const child2Age = year - config.child2BirthYear;
+    const childrenAges = childrenBirthYears.map(birthYear => year - birthYear);
 
     // Income (apply config overrides if set, otherwise use scenario defaults)
     const effectivePartner1WorksUntilAge = config.partner1WorksUntilAge ?? scenario.partner1WorksUntilAge;
@@ -420,10 +416,9 @@ export function runScenarioToExhaustion(
     let expenses = calculateAnnualExpenses(snapshot, config);
     
     // School fees (School: ages 4-11, then secondary assumed similar)
-    if ((child1Age >= 4 && child1Age <= 18) || (child2Age >= 4 && child2Age <= 18)) {
-      const child1InSchool = child1Age >= 4 && child1Age <= 18;
-      const child2InSchool = child2Age >= 4 && child2Age <= 18;
-      const schoolKids = (child1InSchool ? 1 : 0) + (child2InSchool ? 1 : 0);
+    const schoolKids = childrenAges.filter(childAge => childAge >= 4 && childAge <= 18).length;
+    const hasSchoolFees = schoolKids > 0;
+    if (schoolKids > 0) {
       const inflatedFee = config.annualSchoolFeePerChild *
                           Math.pow(1 + assumptions.schoolFeeInflation, age - partner1Age);
       expenses += schoolKids * inflatedFee;
@@ -431,12 +426,10 @@ export function runScenarioToExhaustion(
     
     // University (ages 18-22 for each child)
     if (scenario.includeUniversity) {
-      if (child1Age >= 18 && child1Age < 18 + config.universityYears) {
-        expenses += config.universityAnnualCost;
-      }
-      if (child2Age >= 18 && child2Age < 18 + config.universityYears) {
-        expenses += config.universityAnnualCost;
-      }
+      const uniKids = childrenAges.filter(childAge =>
+        childAge >= 18 && childAge < 18 + config.universityYears
+      ).length;
+      expenses += uniKids * config.universityAnnualCost;
     }
     
     // House upgrade (one-time expense in upgrade year)
@@ -507,7 +500,7 @@ export function runScenarioToExhaustion(
       expenses,
       netCashflow,
       isWorking: partner1Working || partner2Working,
-      isSchoolFees: (child1Age >= 4 && child1Age <= 18) || (child2Age >= 4 && child2Age <= 18),
+      isSchoolFees: hasSchoolFees,
       isRetired: !partner1Working && !partner2Working,
       inheritanceReceived: inheritanceThisYear,
     });
@@ -543,13 +536,18 @@ function calculateCurrentSavingsRate(
   snapshot: MonthlySnapshot,
   config: FortressConfig
 ): number {
-  const annualIncome = annualizeYTD(snapshot.businessRevenueYTD, snapshot.date) + 
-                       config.partner2NetAnnual;
+  const partner2Net = snapshot.partner2IncomeYTD
+    ? annualizeYTD(snapshot.partner2IncomeYTD, snapshot.date)
+    : config.partner2NetAnnual;
+
+  const annualIncome = annualizeYTD(snapshot.businessRevenueYTD, snapshot.date) + partner2Net;
   const annualExpenses = annualizeYTD(snapshot.totalExpensesYTD, snapshot.date);
   
-  // Rough tax estimate (30% effective on business income)
+  // Rough tax estimate
   const businessIncome = annualizeYTD(snapshot.businessRevenueYTD, snapshot.date);
-  const taxes = businessIncome * 0.30;
+  const taxes = config.partner1IncomeMode === 'business'
+    ? businessIncome * 0.30
+    : calculatePAYETax(businessIncome);
   
   return annualIncome - taxes - annualExpenses;
 }
@@ -603,16 +601,19 @@ function calculateRunway(
 }
 
 function calculateAnnualExpenses(
-  _snapshot: MonthlySnapshot,
-  _config: FortressConfig
+  snapshot: MonthlySnapshot,
+  config: FortressConfig
 ): number {
-  // Fixed base expenses (personal + business, excluding school fees)
-  // School fees are added dynamically in projection based on children's ages
-  // Note: We use a fixed value instead of annualizing YTD because YTD includes
-  // school fees, which would cause double-counting when we add them in projections
-  // User's total expenses: ~£205k including school fees
-  // School fees: ~£42.5k for 2 kids → Base: £162.5k
-  return 162500;
+  const totalExpensesYTD = snapshot.totalExpensesYTD || (snapshot.personalExpensesYTD + snapshot.businessExpensesYTD);
+  const annualized = annualizeYTD(totalExpensesYTD, snapshot.date);
+
+  // Remove school fees already paid this year to avoid double counting when we add them per child
+  const year = snapshot.date.getFullYear();
+  const childrenAges = getChildBirthYears(config).map(by => year - by);
+  const kidsInSchoolNow = childrenAges.filter(age => age >= 4 && age <= 18).length;
+  const currentYearSchoolFees = kidsInSchoolNow * config.annualSchoolFeePerChild;
+
+  return Math.max(annualized - currentYearSchoolFees, 0);
 }
 
 function calculateAnnualTax(
@@ -712,6 +713,7 @@ function findMinimumIncome(
   // Binary search for minimum income
   let low = 0;
   let high = 500000;
+  const breakStartYear = new Date().getFullYear() + 1;
   
   while (high - low > 5000) {
     const mid = Math.floor((low + high) / 2);
@@ -720,11 +722,11 @@ function findMinimumIncome(
       id: 'test',
       name: 'test',
       shortName: 'test',
-      partner1WorksUntilAge: config.partner1WorksUntilAge ?? 50,
-      partner2WorksUntilAge: partner2Working ? (config.partner2WorksUntilAge ?? 50) : 0,
+      partner1WorksUntilAge: config.partner1WorksUntilAge ?? 60,
+      partner2WorksUntilAge: partner2Working ? (config.partner2WorksUntilAge ?? 60) : 0,
       partner1AnnualRevenue: mid,
       partner2BreakYears: partner2Working ? 0 : 50,
-      partner2BreakStartYear: 2025,
+      partner2BreakStartYear: breakStartYear,
       includeHouseUpgrade: false,
       houseUpgradeYear: 0,
       includeUniversity: false,
@@ -752,6 +754,7 @@ function findMinimumIncomeForSurplus(
   // Find income where net worth grows by targetSurplus per year
   let low = 0;
   let high = 500000;
+  const breakStartYear = new Date().getFullYear() + 1;
 
   while (high - low > 5000) {
     const mid = Math.floor((low + high) / 2);
@@ -760,11 +763,11 @@ function findMinimumIncomeForSurplus(
       id: 'test',
       name: 'test',
       shortName: 'test',
-      partner1WorksUntilAge: config.partner1WorksUntilAge ?? 50,
-      partner2WorksUntilAge: partner2Working ? (config.partner2WorksUntilAge ?? 50) : 0,
+      partner1WorksUntilAge: config.partner1WorksUntilAge ?? 60,
+      partner2WorksUntilAge: partner2Working ? (config.partner2WorksUntilAge ?? 60) : 0,
       partner1AnnualRevenue: mid,
       partner2BreakYears: partner2Working ? 0 : 50,
-      partner2BreakStartYear: 2025,
+      partner2BreakStartYear: breakStartYear,
       includeHouseUpgrade: false,
       houseUpgradeYear: 0,
       includeUniversity: false,
@@ -797,18 +800,19 @@ function findMinimumIncomeForFITarget(
   assumptions: AssumptionSet,
   partner2Working: boolean
 ): { value: number; hitsCap: boolean } {
-  const retirementAge = config.partner1WorksUntilAge ?? 50;
+  const retirementAge = config.partner1WorksUntilAge ?? 60;
+  const breakStartYear = new Date().getFullYear() + 1;
 
   // Check if FI already achieved with zero income
   const zeroIncomeScenario: ScenarioDefinition = {
     id: 'test-zero',
     name: 'test-zero',
     shortName: 'test',
-    partner1WorksUntilAge: config.partner1WorksUntilAge ?? 50,
-    partner2WorksUntilAge: partner2Working ? (config.partner2WorksUntilAge ?? 50) : 0,
+    partner1WorksUntilAge: config.partner1WorksUntilAge ?? 60,
+    partner2WorksUntilAge: partner2Working ? (config.partner2WorksUntilAge ?? 60) : 0,
     partner1AnnualRevenue: 0,
     partner2BreakYears: partner2Working ? 0 : 50,
-    partner2BreakStartYear: 2025,
+    partner2BreakStartYear: breakStartYear,
     includeHouseUpgrade: false,
     houseUpgradeYear: 0,
     includeUniversity: false,
@@ -833,11 +837,11 @@ function findMinimumIncomeForFITarget(
       id: 'test',
       name: 'test',
       shortName: 'test',
-      partner1WorksUntilAge: config.partner1WorksUntilAge ?? 50,
-      partner2WorksUntilAge: partner2Working ? (config.partner2WorksUntilAge ?? 50) : 0,
+      partner1WorksUntilAge: config.partner1WorksUntilAge ?? 60,
+      partner2WorksUntilAge: partner2Working ? (config.partner2WorksUntilAge ?? 60) : 0,
       partner1AnnualRevenue: mid,
       partner2BreakYears: partner2Working ? 0 : 50,
-      partner2BreakStartYear: 2025,
+      partner2BreakStartYear: breakStartYear,
       includeHouseUpgrade: false,
       houseUpgradeYear: 0,
       includeUniversity: false,
@@ -936,4 +940,19 @@ export function calculateInvestmentExitNet(config: FortressConfig): {
     netProceeds,
     additionalValue,
   };
+}
+
+function getChildBirthYears(config: FortressConfig): number[] {
+  const count = Math.max(0, Math.min(config.personalization.numberOfChildren ?? 0, 4));
+  const births = [
+    config.child1BirthYear,
+    config.child2BirthYear,
+    config.child3BirthYear,
+    config.child4BirthYear,
+  ];
+
+  return births
+    .map((year, index) => ({ year, index }))
+    .filter(item => item.index < count && typeof item.year === 'number')
+    .map(item => item.year as number);
 }

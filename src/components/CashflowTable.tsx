@@ -1,7 +1,6 @@
 // Fortress v2 - Cashflow Conclusion Table
 // Answers: "To what age will your money last?"
 
-import React from 'react';
 import type { CashflowTableRow } from '../types';
 import { DEFAULT_ASSUMPTIONS } from '../types';
 
@@ -29,7 +28,7 @@ export function CashflowTable({ rows }: Props) {
                 <div className="font-normal normal-case text-[10px]">
                   {!assumption.includeInheritance && !assumption.includeInvestmentExit && 'No Windfalls'}
                   {assumption.includeInheritance && !assumption.includeInvestmentExit && '+ Inheritance'}
-                  {!assumption.includeInheritance && assumption.includeInvestmentExit && '+ Northslope'}
+                  {!assumption.includeInheritance && assumption.includeInvestmentExit && '+ Liquidity event'}
                   {assumption.includeInheritance && assumption.includeInvestmentExit && '+ Both'}
                 </div>
               </th>
@@ -73,7 +72,6 @@ function AgeCell({ age }: AgeCellProps) {
   
   const isExcellent = age >= 100;
   const isGood = age >= 85 && age < 100;
-  const isRisk = age < 85;
   
   const colorClass = isExcellent 
     ? 'text-emerald-600' 
@@ -101,7 +99,7 @@ function AgeCell({ age }: AgeCellProps) {
 export function CashflowTableCompact({ rows }: Props) {
   // Show only 5% + inheritance (the "realistic optimistic" case)
   const primaryAssumption = DEFAULT_ASSUMPTIONS.find(a => a.id === '5-inh')!;
-  const fallbackAssumption = DEFAULT_ASSUMPTIONS.find(a => a.id === '3-no-inh')!;
+  const fallbackAssumption = DEFAULT_ASSUMPTIONS.find(a => a.id === '3-none')!;
   
   return (
     <div className="space-y-2">
@@ -134,7 +132,7 @@ export function CashflowTableCompact({ rows }: Props) {
 
 export function CashflowSummary({ rows }: Props) {
   const bestCase = DEFAULT_ASSUMPTIONS.find(a => a.id === '5-inh')!;
-  const worstCase = DEFAULT_ASSUMPTIONS.find(a => a.id === '3-no-inh')!;
+  const worstCase = DEFAULT_ASSUMPTIONS.find(a => a.id === '3-none')!;
   
   const currentPath = rows.find(r => r.scenarioId === 'current');
   const fullUpgrade = rows.find(r => r.scenarioId === 'all');

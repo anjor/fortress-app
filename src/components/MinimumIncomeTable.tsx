@@ -1,7 +1,7 @@
 // Fortress v3 - Minimum Income Table
 // Answers: "What income do you need to earn?"
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Info, X } from 'lucide-react';
 import type { MinimumIncomeRow, PersonalizationConfig } from '../types';
 
@@ -40,24 +40,24 @@ export function MinimumIncomeTable({ rows, personalization }: Props) {
             <div>
               <h4 className="font-medium text-gray-900 mb-1">Breakeven</h4>
               <p className="text-gray-700">
-                Work until age 50 earning this income. Your General Investment Account (GIA) will
-                deplete by age 75, but pensions will sustain you after that.
+                Work until your chosen retirement age. Taxable investments may dip, but pensions should
+                carry you through the later years.
               </p>
             </div>
 
             <div>
               <h4 className="font-medium text-gray-900 mb-1">CoastFI</h4>
               <p className="text-gray-700">
-                Work until age 50 earning this income. You'll accumulate enough wealth during these
-                10 years to last until age 100 after you stop working (drawing down assets as needed).
+                Work to your target age on this income and then coast. Assets should last to age 100
+                after you stop working, assuming drawdown as needed.
               </p>
             </div>
 
             <div>
               <h4 className="font-medium text-gray-900 mb-1">Surplus</h4>
               <p className="text-gray-700">
-                Work until age 50 earning this income. This ensures your net worth grows by £50,000
-                per year in real terms while working, building a safety buffer.
+                Work to your target age and grow net worth by £50,000 per year in real terms while
+                working, adding a safety buffer.
               </p>
             </div>
           </div>
@@ -152,12 +152,10 @@ interface IncomeCellProps {
 }
 
 function IncomeCell({ value, threshold, hitsCap }: IncomeCellProps) {
-  // Highlight current Fortress revenue (~£300k) against requirements
-  const isBelowRequirement = value > 300000;
-  const isComfortablyAbove = value < 250000;
-
   // Color coding: green if already achieved (value = 0), otherwise standard colors
-  const colorClass = threshold === 'breakeven'
+  const colorClass = hitsCap
+    ? 'text-amber-700'
+    : threshold === 'breakeven'
     ? value === 0 ? 'text-emerald-600' : 'text-gray-900'
     : threshold === 'coastfi'
     ? 'text-amber-600'
@@ -206,7 +204,7 @@ export function MinimumIncomeSummary({ rows, personalization }: Props) {
         </div>
       </div>
       <p className="text-xs text-gray-400 mt-2">
-        Current business revenue: ~£300k → {coastfi.partner2Working <= 300000 ? 'Exceeds' : 'Below'} CoastFI
+        Compare these against your current income to see if you are already coasting.
       </p>
     </div>
   );
@@ -216,7 +214,7 @@ export function MinimumIncomeSummary({ rows, personalization }: Props) {
 // Visual comparison against current income
 // ============================================================================
 
-export function IncomeGauge({ rows, currentRevenue = 300000 }: Props & { currentRevenue?: number }) {
+export function IncomeGauge({ rows, currentRevenue = 0 }: Props & { currentRevenue?: number }) {
   const breakeven = rows.find(r => r.threshold === 'breakeven')!;
   const coastfi = rows.find(r => r.threshold === 'coastfi')!;
   const surplus = rows.find(r => r.threshold === 'surplus')!;
@@ -228,7 +226,8 @@ export function IncomeGauge({ rows, currentRevenue = 300000 }: Props & { current
     { label: 'Surplus', value: surplus.partner2Working, color: 'bg-emerald-400' },
   ];
   
-  const maxValue = Math.max(...thresholds.map(t => t.value), currentRevenue) * 1.1;
+  const comparisonValue = currentRevenue || Math.max(...thresholds.map(t => t.value));
+  const maxValue = Math.max(...thresholds.map(t => t.value), comparisonValue, 1) * 1.1;
   
   return (
     <div className="space-y-3">

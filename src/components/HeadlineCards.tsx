@@ -1,7 +1,6 @@
 // Fortress v3 - Headline Metrics Cards
 // Shows the 4 key numbers at a glance
 
-import React from 'react';
 import type { HeadlineMetrics, FortressConfig } from '../types';
 import { calculateInvestmentExitNet } from '../lib/calculations';
 

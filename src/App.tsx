@@ -1,9 +1,9 @@
 // Fortress v2 - Main Application
 // Living dashboard with optional advanced mode
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Dashboard } from './components';
-import { useFortressStore, loadDemoData } from './store';
+import { useFortressStore } from './store';
 
 export default function App() {
   const latestSnapshot = useFortressStore(state => state.latestSnapshot);
