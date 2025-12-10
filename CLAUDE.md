@@ -52,3 +52,7 @@ The app models financial independence planning scenarios with support for:
 - Customizable FI target (default: 25x annual expenses = 4% safe withdrawal rate)
 - UK-specific tax calculations (income tax, NI, dividends, corporation tax)
 - Scenario planning: career breaks, house upgrades, inheritance, investment exits
+
+## Design Guidelines
+
+The design should look minimal and modern. Think linear / notion.
