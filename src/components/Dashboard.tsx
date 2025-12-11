@@ -1,23 +1,19 @@
 // Fortress v3 - Living Dashboard
 // The primary view that answers your key questions without interaction
 
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useFortressStore } from '../store';
 import { HeadlineCards } from './HeadlineCards';
 import { CashflowTable } from './CashflowTable';
 import { MinimumIncomeTable } from './MinimumIncomeTable';
 import { DataEntryModal } from './DataEntryModal';
-import { SettingsModal } from './SettingsModal';
-import { OnboardingWizard } from './OnboardingWizard';
 import { MethodologyModal } from './MethodologyModal';
 import { WindfallEditor } from './WindfallEditor';
 import { RefreshCw, Settings, Download } from 'lucide-react';
 
 export function Dashboard() {
   const [showDataEntry, setShowDataEntry] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [showWindfallEditor, setShowWindfallEditor] = useState(false);
 
@@ -27,12 +23,6 @@ export function Dashboard() {
   const minimumIncomeTable = useFortressStore(state => state.minimumIncomeTable);
   const config = useFortressStore(state => state.config);
   const assumptions = useFortressStore(state => state.assumptions);
-  const hasCompletedOnboarding = useFortressStore(state => state.hasCompletedOnboarding);
-  React.useEffect(() => {
-    if (!hasCompletedOnboarding && !latestSnapshot && !onboardingDismissed) {
-      setShowOnboarding(true);
-    }
-  }, [hasCompletedOnboarding, latestSnapshot, onboardingDismissed]);
 
   const hasSnapshot = Boolean(latestSnapshot);
   const lastUpdated = latestSnapshot?.date
@@ -83,12 +73,12 @@ export function Dashboard() {
               <RefreshCw className="w-3.5 h-3.5" />
               Update
             </button>
-            <button
-              onClick={() => setShowConfig(true)}
+            <Link
+              to="/settings"
               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
             >
               <Settings className="w-4 h-4" />
-            </button>
+            </Link>
             <button
               onClick={() => setShowMethodology(true)}
               className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-4"
@@ -104,8 +94,6 @@ export function Dashboard() {
         {!hasSnapshot && (
           <OnboardingPanel
             onAddSnapshot={() => setShowDataEntry(true)}
-            onOpenSettings={() => setShowConfig(true)}
-            onStartOnboarding={() => setShowOnboarding(true)}
           />
         )}
         
@@ -189,14 +177,6 @@ export function Dashboard() {
         <DataEntryModal onClose={() => setShowDataEntry(false)} />
       )}
 
-      {showConfig && (
-        <SettingsModal onClose={() => setShowConfig(false)} />
-      )}
-
-      {(showOnboarding || !hasCompletedOnboarding) && (
-        <OnboardingWizard onClose={() => { setShowOnboarding(false); setOnboardingDismissed(true); }} />
-      )}
-
       {showMethodology && (
         <MethodologyModal onClose={() => setShowMethodology(false)} />
       )}
@@ -218,12 +198,8 @@ function EmptyState({ message }: { message: string }) {
 
 function OnboardingPanel({
   onAddSnapshot,
-  onOpenSettings,
-  onStartOnboarding,
 }: {
   onAddSnapshot: () => void;
-  onOpenSettings: () => void;
-  onStartOnboarding: () => void;
 }) {
   return (
     <section className="p-6 border border-gray-200 rounded-xl bg-gray-50">
@@ -248,28 +224,22 @@ function OnboardingPanel({
         </div>
       </div>
       <div className="flex flex-wrap gap-3">
+        <Link
+          to="/settings"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+        >
+          <Settings className="w-4 h-4" />
+          Configure Settings
+        </Link>
         <button
           onClick={onAddSnapshot}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-gray-700 text-sm font-medium border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
           Add first snapshot
         </button>
-        <button
-          onClick={onOpenSettings}
-          className="flex items-center gap-2 px-4 py-2 text-gray-700 text-sm font-medium border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
-        >
-          <Settings className="w-4 h-4" />
-          Open settings
-        </button>
-        <button
-          onClick={onStartOnboarding}
-          className="flex items-center gap-2 px-4 py-2 text-gray-700 text-sm font-medium border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
-        >
-          Start guided onboarding
-        </button>
         <p className="text-xs text-gray-500">
-          Once saved, projections unlock headline metrics, “money lasts to age” and “income needed” tables.
+          Once saved, projections unlock headline metrics, "money lasts to age" and "income needed" tables.
         </p>
       </div>
     </section>
