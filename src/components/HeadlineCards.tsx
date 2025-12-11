@@ -7,9 +7,10 @@ import { calculateInvestmentExitNet } from '../lib/calculations';
 interface Props {
   metrics: HeadlineMetrics;
   config?: FortressConfig;
+  onEditWindfalls?: () => void;
 }
 
-export function HeadlineCards({ metrics, config }: Props) {
+export function HeadlineCards({ metrics, config, onEditWindfalls }: Props) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-4 gap-6">
@@ -42,21 +43,42 @@ export function HeadlineCards({ metrics, config }: Props) {
       </div>
 
       {config && (config.investmentExitGross > 0 || config.inheritanceAmount > 0) && (
-        <div className="text-sm text-gray-500 pt-3 border-t border-gray-100">
-          <span className="font-medium text-gray-700">Pending windfalls: </span>
-          {config.investmentExitGross > 0 && (
-            <>
+        <div className="flex items-center justify-between text-sm text-gray-500 pt-3 border-t border-gray-100">
+          <div>
+            <span className="font-medium text-gray-700">Pending windfalls: </span>
+            {config.investmentExitGross > 0 && (
+              <>
+                <span>
+                  {config.personalization.investmentName} exit (~{formatCurrency(calculateInvestmentExitNet(config).additionalValue)} net @ age {config.investmentExitPartner1Age})
+                </span>
+                {config.inheritanceAmount > 0 && <span className="mx-2">•</span>}
+              </>
+            )}
+            {config.inheritanceAmount > 0 && (
               <span>
-                {config.personalization.investmentName} exit (~{formatCurrency(calculateInvestmentExitNet(config).additionalValue)} net @ age {config.investmentExitPartner1Age})
+                Inheritance ({formatCurrency(config.inheritanceAmount)} @ age {config.inheritancePartner1Age})
               </span>
-              {config.inheritanceAmount > 0 && <span className="mx-2">•</span>}
-            </>
+            )}
+          </div>
+          {onEditWindfalls && (
+            <button
+              onClick={onEditWindfalls}
+              className="text-xs text-gray-500 hover:text-gray-900 underline underline-offset-2"
+            >
+              Edit
+            </button>
           )}
-          {config.inheritanceAmount > 0 && (
-            <span>
-              Inheritance ({formatCurrency(config.inheritanceAmount)} @ age {config.inheritancePartner1Age})
-            </span>
-          )}
+        </div>
+      )}
+
+      {config && config.investmentExitGross === 0 && config.inheritanceAmount === 0 && onEditWindfalls && (
+        <div className="text-sm text-gray-500 pt-3 border-t border-gray-100">
+          <button
+            onClick={onEditWindfalls}
+            className="text-xs text-gray-500 hover:text-gray-900 underline underline-offset-2"
+          >
+            + Add windfall scenarios
+          </button>
         </div>
       )}
     </div>

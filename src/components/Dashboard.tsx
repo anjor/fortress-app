@@ -10,6 +10,7 @@ import { DataEntryModal } from './DataEntryModal';
 import { SettingsModal } from './SettingsModal';
 import { OnboardingWizard } from './OnboardingWizard';
 import { MethodologyModal } from './MethodologyModal';
+import { WindfallEditor } from './WindfallEditor';
 import { RefreshCw, Settings, Download } from 'lucide-react';
 
 export function Dashboard() {
@@ -18,6 +19,7 @@ export function Dashboard() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
+  const [showWindfallEditor, setShowWindfallEditor] = useState(false);
 
   const latestSnapshot = useFortressStore(state => state.latestSnapshot);
   const headlineMetrics = useFortressStore(state => state.headlineMetrics);
@@ -109,7 +111,11 @@ export function Dashboard() {
         
         {/* Headline Metrics */}
         {headlineMetrics && (
-          <HeadlineCards metrics={headlineMetrics} config={config} />
+          <HeadlineCards
+            metrics={headlineMetrics}
+            config={config}
+            onEditWindfalls={() => setShowWindfallEditor(true)}
+          />
         )}
 
         {/* Cashflow Conclusion Table */}
@@ -193,6 +199,10 @@ export function Dashboard() {
 
       {showMethodology && (
         <MethodologyModal onClose={() => setShowMethodology(false)} />
+      )}
+
+      {showWindfallEditor && (
+        <WindfallEditor onClose={() => setShowWindfallEditor(false)} />
       )}
     </div>
   );
