@@ -10,6 +10,7 @@ interface Props {
 
 export function CashflowTable({ rows, assumptions }: Props) {
   const assumptionHeaders = assumptions;
+  const hasAnyWindfalls = assumptions.some(a => a.includeInheritance || a.includeInvestmentExit);
 
   return (
     <div className="overflow-x-auto">
@@ -29,12 +30,14 @@ export function CashflowTable({ rows, assumptions }: Props) {
                 }`}
               >
                 <div>{assumption.realReturnRate * 100}%</div>
-                <div className="font-normal normal-case text-[10px]">
-                  {!assumption.includeInheritance && !assumption.includeInvestmentExit && 'No Windfalls'}
-                  {assumption.includeInheritance && !assumption.includeInvestmentExit && '+ Inheritance'}
-                  {!assumption.includeInheritance && assumption.includeInvestmentExit && '+ Liquidity event'}
-                  {assumption.includeInheritance && assumption.includeInvestmentExit && '+ Both'}
-                </div>
+                {hasAnyWindfalls && (
+                  <div className="font-normal normal-case text-[10px]">
+                    {!assumption.includeInheritance && !assumption.includeInvestmentExit && 'No Windfalls'}
+                    {assumption.includeInheritance && !assumption.includeInvestmentExit && '+ Inheritance'}
+                    {!assumption.includeInheritance && assumption.includeInvestmentExit && '+ Liquidity event'}
+                    {assumption.includeInheritance && assumption.includeInvestmentExit && '+ Both'}
+                  </div>
+                )}
               </th>
             ))}
           </tr>

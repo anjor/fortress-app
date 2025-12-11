@@ -3,15 +3,18 @@
 
 import { useState } from 'react';
 import { Info, X } from 'lucide-react';
-import type { MinimumIncomeRow, PersonalizationConfig } from '../types';
+import type { MinimumIncomeRow, PersonalizationConfig, FortressConfig } from '../types';
 
 interface Props {
   rows: MinimumIncomeRow[];
   personalization: PersonalizationConfig;
+  config: FortressConfig;
 }
 
-export function MinimumIncomeTable({ rows, personalization }: Props) {
+export function MinimumIncomeTable({ rows, personalization, config }: Props) {
   const [showExplanation, setShowExplanation] = useState(false);
+  const hasWindfalls = config.inheritanceAmount > 0 || config.investmentExitGross > 0;
+
   return (
     <div>
       {/* Explanation link */}
@@ -71,12 +74,20 @@ export function MinimumIncomeTable({ rows, personalization }: Props) {
             <th rowSpan={2} className="text-left py-3 pr-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
               Threshold
             </th>
-            <th colSpan={3} className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-              Without Windfalls
-            </th>
-            <th colSpan={3} className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-              With Windfalls (Both)
-            </th>
+            {hasWindfalls ? (
+              <>
+                <th colSpan={3} className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                  Without Windfalls
+                </th>
+                <th colSpan={3} className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                  With Windfalls (Both)
+                </th>
+              </>
+            ) : (
+              <th colSpan={3} className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                {/* No header when no windfalls */}
+              </th>
+            )}
           </tr>
           <tr className="border-b border-gray-200">
             <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -88,15 +99,19 @@ export function MinimumIncomeTable({ rows, personalization }: Props) {
             <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
               PAYE Equiv
             </th>
-            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {personalization.partner2Name} Working
-            </th>
-            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {personalization.partner2Name} Break
-            </th>
-            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-              PAYE Equiv
-            </th>
+            {hasWindfalls && (
+              <>
+                <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {personalization.partner2Name} Working
+                </th>
+                <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {personalization.partner2Name} Break
+                </th>
+                <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  PAYE Equiv
+                </th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -121,17 +136,21 @@ export function MinimumIncomeTable({ rows, personalization }: Props) {
                 </span>
               </td>
               {/* With windfalls */}
-              <td className="px-3 py-3 text-center">
-                <IncomeCell value={row.partner2WorkingWithWindfalls} threshold={row.threshold} hitsCap={row.partner2WorkingWithWindfallsHitsCap} />
-              </td>
-              <td className="px-3 py-3 text-center">
-                <IncomeCell value={row.partner2BreakWithWindfalls} threshold={row.threshold} hitsCap={row.partner2BreakWithWindfallsHitsCap} />
-              </td>
-              <td className="px-3 py-3 text-center">
-                <span className="text-sm text-gray-500 tabular-nums">
-                  {row.payeAlternativeWithWindfallsHitsCap ? '> £1m' : formatCurrency(row.payeAlternativeWithWindfalls)}
-                </span>
-              </td>
+              {hasWindfalls && (
+                <>
+                  <td className="px-3 py-3 text-center">
+                    <IncomeCell value={row.partner2WorkingWithWindfalls} threshold={row.threshold} hitsCap={row.partner2WorkingWithWindfallsHitsCap} />
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <IncomeCell value={row.partner2BreakWithWindfalls} threshold={row.threshold} hitsCap={row.partner2BreakWithWindfallsHitsCap} />
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <span className="text-sm text-gray-500 tabular-nums">
+                      {row.payeAlternativeWithWindfallsHitsCap ? '> £1m' : formatCurrency(row.payeAlternativeWithWindfalls)}
+                    </span>
+                  </td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>

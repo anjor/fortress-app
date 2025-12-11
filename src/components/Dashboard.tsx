@@ -142,7 +142,7 @@ export function Dashboard() {
           </div>
 
           {minimumIncomeTable.length > 0 ? (
-            <MinimumIncomeTable rows={minimumIncomeTable} personalization={personalization} />
+            <MinimumIncomeTable rows={minimumIncomeTable} personalization={personalization} config={config} />
           ) : (
             <EmptyState message="Add your latest snapshot to see income requirements" />
           )}
