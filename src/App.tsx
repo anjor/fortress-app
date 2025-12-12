@@ -22,7 +22,7 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/fortress-app">
       <div className="min-h-screen bg-white antialiased">
         <Routes>
           <Route path="/" element={
