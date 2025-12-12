@@ -1,24 +1,38 @@
 // Fortress v2 - Main Application
 // Living dashboard with optional advanced mode
 
-import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './components';
+import { SettingsPage } from './pages/SettingsPage';
 import { useFortressStore } from './store';
 
-export default function App() {
+// Route guard for new users
+function RouteGuard({ children }: { children: React.ReactNode }) {
+  const hasCompletedOnboarding = useFortressStore(state => state.hasCompletedOnboarding);
   const latestSnapshot = useFortressStore(state => state.latestSnapshot);
-  
-  // Load demo data if no snapshot exists (for development)
-  useEffect(() => {
-    if (!latestSnapshot) {
-      // Uncomment to auto-load demo data:
-      // loadDemoData();
-    }
-  }, [latestSnapshot]);
-  
+
+  const isNewUser = !hasCompletedOnboarding && !latestSnapshot;
+
+  if (isNewUser) {
+    return <Navigate to="/settings" replace state={{ isNewUser: true }} />;
+  }
+
+  return <>{children}</>;
+}
+
+export default function App() {
   return (
-    <div className="min-h-screen bg-white antialiased">
-      <Dashboard />
-    </div>
+    <BrowserRouter basename="/fortress-app">
+      <div className="min-h-screen bg-white antialiased">
+        <Routes>
+          <Route path="/" element={
+            <RouteGuard>
+              <Dashboard />
+            </RouteGuard>
+          } />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
   );
 }
