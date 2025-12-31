@@ -18,8 +18,6 @@ export function DataEntryModal({ onClose }: Props) {
   const [parsedSnapshot, setParsedSnapshot] = useState<Partial<MonthlySnapshot> | null>(null);
   const [revenue, setRevenue] = useState('');
   const [partnerIncome, setPartnerIncome] = useState('');
-  const [personalExpenses, setPersonalExpenses] = useState('');
-  const [businessExpenses, setBusinessExpenses] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [updateAction, setUpdateAction] = useState<'added' | 'updated' | null>(null);
   const [manualDate, setManualDate] = useState(formatInputDate(new Date()));
@@ -129,10 +127,7 @@ export function DataEntryModal({ onClose }: Props) {
       total: deriveTotal(),
       businessRevenueYTD: parseFloat(revenue.replace(/[£,]/g, '')) || 0,
       partner2IncomeYTD: parseFloat(partnerIncome.replace(/[£,]/g, '')) || 0,
-      personalExpensesYTD: parseFloat(personalExpenses.replace(/[£,]/g, '')) || 0,
-      businessExpensesYTD: parseFloat(businessExpenses.replace(/[£,]/g, '')) || 0,
-      totalExpensesYTD: (parseFloat(personalExpenses.replace(/[£,]/g, '')) || 0) +
-                        (parseFloat(businessExpenses.replace(/[£,]/g, '')) || 0)
+      totalExpensesYTD: 0  // No longer tracked in snapshots
     };
 
     if (snapshot.total === 0) {
@@ -296,7 +291,10 @@ export function DataEntryModal({ onClose }: Props) {
               </div>
               
               <div className="border-t border-gray-100 pt-6">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Revenue &amp; Expenses (YTD)</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Revenue (YTD)</h3>
+                <p className="text-xs text-gray-600 mb-3">
+                  Baseline expenses are now configured in Settings.
+                </p>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">{config.personalization.businessName} Revenue YTD</label>
@@ -317,28 +315,6 @@ export function DataEntryModal({ onClose }: Props) {
                       placeholder="£35,000"
                       className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Personal Expenses YTD</label>
-                      <input
-                        type="text"
-                        value={personalExpenses}
-                        onChange={(e) => setPersonalExpenses(e.target.value)}
-                        placeholder="£40,000"
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Business Expenses YTD</label>
-                      <input
-                        type="text"
-                        value={businessExpenses}
-                        onChange={(e) => setBusinessExpenses(e.target.value)}
-                        placeholder="£15,000"
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                      />
-                    </div>
                   </div>
                 </div>
               </div>

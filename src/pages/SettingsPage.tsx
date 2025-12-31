@@ -46,11 +46,13 @@ export function SettingsPage() {
   const [partner1EmployedSalary, setPartner1EmployedSalary] = useState(
     config.partner1EmployedSalary.toString()
   );
+  const [partner1SalaryInputMode, setPartner1SalaryInputMode] = useState<'gross' | 'net'>('gross');
+  const [partner1NetAnnual, setPartner1NetAnnual] = useState('');
 
   const [partner2SalaryInputMode, setPartner2SalaryInputMode] = useState<'gross' | 'net'>(
     config.partner2SalaryInputMode
   );
-  const [partner2GrossAnnual, setPartner2GrossAnnual] = useState(
+  const [partner2GrossAnnual] = useState(
     config.partner2GrossAnnual.toString()
   );
   const [partner2NetAnnual, setPartner2NetAnnual] = useState(
@@ -90,6 +92,43 @@ export function SettingsPage() {
   );
   const [universityYears, setUniversityYears] = useState(
     config.universityYears.toString()
+  );
+
+  // Partner 2 business mode (NEW)
+  const [partner2IncomeMode, setPartner2IncomeMode] = useState<'business' | 'employed'>(
+    config.partner2IncomeMode || 'employed'
+  );
+  const [partner2BusinessRevenue, setPartner2BusinessRevenue] = useState(
+    (config.partner2BusinessRevenue || 120000).toString()
+  );
+  const [partner2EmployedSalary, setPartner2EmployedSalary] = useState(
+    (config.partner2EmployedSalary || config.partner2GrossAnnual || 45000).toString()
+  );
+
+  // Baseline expenses (NEW)
+  const [expenseInputMode, setExpenseInputMode] = useState<'monthly' | 'annual'>('monthly');
+  const [personalExpensesMonthly, setPersonalExpensesMonthly] = useState(
+    (config.personalExpensesMonthly || 5000).toString()
+  );
+  const [businessExpensesMonthly, setBusinessExpensesMonthly] = useState(
+    (config.businessExpensesMonthly || 1000).toString()
+  );
+  const [personalExpensesAnnual, setPersonalExpensesAnnual] = useState(
+    ((config.personalExpensesMonthly || 5000) * 12).toString()
+  );
+  const [businessExpensesAnnual, setBusinessExpensesAnnual] = useState(
+    ((config.businessExpensesMonthly || 1000) * 12).toString()
+  );
+
+  // Extras toggles (NEW)
+  const [schoolFeesEnabled, setSchoolFeesEnabled] = useState(
+    config.schoolFeesEnabled ?? (config.annualSchoolFeePerChild > 0)
+  );
+  const [houseUpgradeEnabled, setHouseUpgradeEnabled] = useState(
+    config.houseUpgradeEnabled ?? (config.houseUpgradeBudget > 0)
+  );
+  const [universityEnabled, setUniversityEnabled] = useState(
+    config.universityEnabled ?? (config.universityAnnualCost > 0)
   );
 
   // Local form state - Goals
@@ -162,6 +201,11 @@ export function SettingsPage() {
       newErrors.partner1EmployedSalary = 'Must be between £0 and £1,000,000';
     }
 
+    const partner1Net = parseFloat(partner1NetAnnual.replace(/[£,]/g, ''));
+    if (partner1NetAnnual && (isNaN(partner1Net) || partner1Net < 0 || partner1Net > 1000000)) {
+      newErrors.partner1NetAnnual = 'Must be between £0 and £1,000,000';
+    }
+
     const partner2Gross = parseFloat(partner2GrossAnnual.replace(/[£,]/g, ''));
     if (isNaN(partner2Gross) || partner2Gross < 0 || partner2Gross > 500000) {
       newErrors.partner2GrossAnnual = 'Must be between £0 and £500,000';
@@ -170,6 +214,78 @@ export function SettingsPage() {
     const partner2Net = parseFloat(partner2NetAnnual.replace(/[£,]/g, ''));
     if (isNaN(partner2Net) || partner2Net < 0 || partner2Net > 500000) {
       newErrors.partner2NetAnnual = 'Must be between £0 and £500,000';
+    }
+
+    // Partner 2 business revenue validation (NEW)
+    const partner2BizRev = parseFloat(partner2BusinessRevenue.replace(/[£,]/g, ''));
+    if (isNaN(partner2BizRev) || partner2BizRev < 0 || partner2BizRev > 2000000) {
+      newErrors.partner2BusinessRevenue = 'Must be between £0 and £2,000,000';
+    }
+
+    // Partner 2 employed salary validation (NEW)
+    const partner2EmpSal = parseFloat(partner2EmployedSalary.replace(/[£,]/g, ''));
+    if (isNaN(partner2EmpSal) || partner2EmpSal < 0 || partner2EmpSal > 500000) {
+      newErrors.partner2EmployedSalary = 'Must be between £0 and £500,000';
+    }
+
+    // Baseline expenses validation (handle both monthly and annual)
+    if (expenseInputMode === 'monthly') {
+      const personalExp = parseFloat(personalExpensesMonthly.replace(/[£,]/g, ''));
+      if (isNaN(personalExp) || personalExp < 0 || personalExp > 50000) {
+        newErrors.personalExpensesMonthly = 'Must be between £0 and £50,000';
+      }
+
+      const businessExp = parseFloat(businessExpensesMonthly.replace(/[£,]/g, ''));
+      if (isNaN(businessExp) || businessExp < 0 || businessExp > 20000) {
+        newErrors.businessExpensesMonthly = 'Must be between £0 and £20,000';
+      }
+    } else {
+      const personalExp = parseFloat(personalExpensesAnnual.replace(/[£,]/g, ''));
+      if (isNaN(personalExp) || personalExp < 0 || personalExp > 600000) {
+        newErrors.personalExpensesAnnual = 'Must be between £0 and £600,000';
+      }
+
+      const businessExp = parseFloat(businessExpensesAnnual.replace(/[£,]/g, ''));
+      if (isNaN(businessExp) || businessExp < 0 || businessExp > 240000) {
+        newErrors.businessExpensesAnnual = 'Must be between £0 and £240,000';
+      }
+    }
+
+    // Extras validation (only if enabled) (NEW)
+    if (schoolFeesEnabled) {
+      const schoolFee = parseFloat(annualSchoolFeePerChild.replace(/[£,]/g, ''));
+      if (isNaN(schoolFee) || schoolFee < 0 || schoolFee > 100000) {
+        newErrors.annualSchoolFeePerChild = 'Must be between £0 and £100,000';
+      }
+    }
+
+    if (houseUpgradeEnabled) {
+      const houseCurrent = parseFloat(currentHouseValue.replace(/[£,]/g, ''));
+      if (isNaN(houseCurrent) || houseCurrent < 0 || houseCurrent > 10000000) {
+        newErrors.currentHouseValue = 'Must be between £0 and £10,000,000';
+      }
+
+      const houseBudget = parseFloat(houseUpgradeBudget.replace(/[£,]/g, ''));
+      if (isNaN(houseBudget) || houseBudget < 0 || houseBudget > 10000000) {
+        newErrors.houseUpgradeBudget = 'Must be between £0 and £10,000,000';
+      }
+
+      const mortgage = parseFloat(mortgageRemaining.replace(/[£,]/g, ''));
+      if (isNaN(mortgage) || mortgage < 0 || mortgage > 5000000) {
+        newErrors.mortgageRemaining = 'Must be between £0 and £5,000,000';
+      }
+    }
+
+    if (universityEnabled) {
+      const uniCost = parseFloat(universityAnnualCost.replace(/[£,]/g, ''));
+      if (isNaN(uniCost) || uniCost < 0 || uniCost > 100000) {
+        newErrors.universityAnnualCost = 'Must be between £0 and £100,000';
+      }
+
+      const uniYears = parseInt(universityYears);
+      if (isNaN(uniYears) || uniYears < 1 || uniYears > 10) {
+        newErrors.universityYears = 'Must be between 1 and 10';
+      }
     }
 
     // Windfall validation (only if enabled)
@@ -281,6 +397,9 @@ export function SettingsPage() {
       partner1IncomeMode,
       partner1BusinessRevenue: parseFloat(partner1BusinessRevenue.replace(/[£,]/g, '')),
       partner1EmployedSalary: parseFloat(partner1EmployedSalary.replace(/[£,]/g, '')),
+      partner2IncomeMode,
+      partner2BusinessRevenue: parseFloat(partner2BusinessRevenue.replace(/[£,]/g, '')),
+      partner2EmployedSalary: parseFloat(partner2EmployedSalary.replace(/[£,]/g, '')),
       partner2SalaryInputMode,
 
       // Windfalls
@@ -296,13 +415,38 @@ export function SettingsPage() {
         : 0,
       investmentExitPartner1Age: parseInt(investment.age) || config.investmentExitPartner1Age,
 
-      // Outgoings
-      annualSchoolFeePerChild: parseFloat(annualSchoolFeePerChild.replace(/[£,]/g, '')),
-      houseUpgradeBudget: parseFloat(houseUpgradeBudget.replace(/[£,]/g, '')),
-      currentHouseValue: parseFloat(currentHouseValue.replace(/[£,]/g, '')),
-      mortgageRemaining: parseFloat(mortgageRemaining.replace(/[£,]/g, '')),
-      universityAnnualCost: parseFloat(universityAnnualCost.replace(/[£,]/g, '')),
-      universityYears: parseInt(universityYears),
+      // Baseline expenses (always store as monthly)
+      personalExpensesMonthly: expenseInputMode === 'monthly'
+        ? parseFloat(personalExpensesMonthly.replace(/[£,]/g, ''))
+        : parseFloat(personalExpensesAnnual.replace(/[£,]/g, '')) / 12,
+      businessExpensesMonthly: expenseInputMode === 'monthly'
+        ? parseFloat(businessExpensesMonthly.replace(/[£,]/g, ''))
+        : parseFloat(businessExpensesAnnual.replace(/[£,]/g, '')) / 12,
+
+      // Extras toggles (NEW)
+      schoolFeesEnabled,
+      houseUpgradeEnabled,
+      universityEnabled,
+
+      // Outgoings (set to 0 if disabled)
+      annualSchoolFeePerChild: schoolFeesEnabled
+        ? parseFloat(annualSchoolFeePerChild.replace(/[£,]/g, ''))
+        : 0,
+      houseUpgradeBudget: houseUpgradeEnabled
+        ? parseFloat(houseUpgradeBudget.replace(/[£,]/g, ''))
+        : 0,
+      currentHouseValue: houseUpgradeEnabled
+        ? parseFloat(currentHouseValue.replace(/[£,]/g, ''))
+        : config.currentHouseValue,
+      mortgageRemaining: houseUpgradeEnabled
+        ? parseFloat(mortgageRemaining.replace(/[£,]/g, ''))
+        : config.mortgageRemaining,
+      universityAnnualCost: universityEnabled
+        ? parseFloat(universityAnnualCost.replace(/[£,]/g, ''))
+        : 0,
+      universityYears: universityEnabled
+        ? parseInt(universityYears)
+        : config.universityYears,
 
       // Personalization
       personalization: {
@@ -312,17 +456,31 @@ export function SettingsPage() {
       },
     };
 
-    // Calculate dependent field based on input mode
-    if (partner2SalaryInputMode === 'gross') {
-      const gross = parseFloat(partner2GrossAnnual.replace(/[£,]/g, ''));
-      const tax = calculatePAYETax(gross);
-      configUpdate.partner2GrossAnnual = gross;
-      configUpdate.partner2NetAnnual = gross - tax;
-    } else {
-      const net = parseFloat(partner2NetAnnual.replace(/[£,]/g, ''));
+    // Calculate dependent field for Partner 1 (only for employed mode)
+    if (partner1IncomeMode === 'employed' && partner1SalaryInputMode === 'net') {
+      const net = parseFloat(partner1NetAnnual.replace(/[£,]/g, ''));
       const gross = calculateGrossFromNet(net);
-      configUpdate.partner2NetAnnual = net;
-      configUpdate.partner2GrossAnnual = gross;
+      configUpdate.partner1EmployedSalary = gross;
+    }
+
+    // Calculate dependent field for Partner 2 (only for employed mode)
+    if (partner2IncomeMode === 'employed') {
+      if (partner2SalaryInputMode === 'gross') {
+        const gross = parseFloat(partner2EmployedSalary.replace(/[£,]/g, ''));
+        const tax = calculatePAYETax(gross);
+        configUpdate.partner2GrossAnnual = gross;
+        configUpdate.partner2NetAnnual = gross - tax;
+      } else {
+        const net = parseFloat(partner2NetAnnual.replace(/[£,]/g, ''));
+        const gross = calculateGrossFromNet(net);
+        configUpdate.partner2NetAnnual = net;
+        configUpdate.partner2GrossAnnual = gross;
+        configUpdate.partner2EmployedSalary = gross;
+      }
+    } else {
+      // Business mode - keep existing values
+      configUpdate.partner2GrossAnnual = config.partner2GrossAnnual;
+      configUpdate.partner2NetAnnual = config.partner2NetAnnual;
     }
 
     // Update config (triggers recalculation)
@@ -614,22 +772,94 @@ export function SettingsPage() {
                     <div className="font-medium text-gray-900 mb-2">
                       Employed (PAYE)
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">Gross salary: £</span>
-                      <input
-                        type="text"
-                        value={partner1EmployedSalary}
-                        onChange={(e) => setPartner1EmployedSalary(e.target.value)}
-                        disabled={partner1IncomeMode !== 'employed'}
-                        placeholder="120,000"
-                        className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm disabled:opacity-50 disabled:bg-gray-50"
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Standard PAYE tax (income tax + NI)
-                    </p>
-                    {errors.partner1EmployedSalary && (
-                      <p className="text-xs text-red-600 mt-1">{errors.partner1EmployedSalary}</p>
+
+                    {/* Gross/Net toggle within Employed mode */}
+                    {partner1IncomeMode === 'employed' && (
+                      <div className="space-y-2 mt-3">
+                        {/* Gross input option */}
+                        <div
+                          onClick={(e) => { e.stopPropagation(); setPartner1SalaryInputMode('gross'); }}
+                          className={`p-3 rounded border cursor-pointer ${
+                            partner1SalaryInputMode === 'gross'
+                              ? 'border-gray-900 bg-white'
+                              : 'border-gray-200 bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center mb-2">
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mr-2 ${
+                              partner1SalaryInputMode === 'gross' ? 'border-gray-900' : 'border-gray-300'
+                            }`}>
+                              {partner1SalaryInputMode === 'gross' && (
+                                <div className="w-2 h-2 rounded-full bg-gray-900" />
+                              )}
+                            </div>
+                            <span className="text-sm font-medium text-gray-900">Enter Gross Salary</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">Gross: £</span>
+                            <input
+                              type="text"
+                              value={partner1EmployedSalary}
+                              onChange={(e) => { e.stopPropagation(); setPartner1EmployedSalary(e.target.value); }}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={partner1SalaryInputMode !== 'gross'}
+                              placeholder="70,000"
+                              className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm disabled:opacity-50 disabled:bg-gray-50"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Net will be calculated automatically
+                          </p>
+                          {errors.partner1EmployedSalary && (
+                            <p className="text-xs text-red-600 mt-1">{errors.partner1EmployedSalary}</p>
+                          )}
+                        </div>
+
+                        {/* Net input option */}
+                        <div
+                          onClick={(e) => { e.stopPropagation(); setPartner1SalaryInputMode('net'); }}
+                          className={`p-3 rounded border cursor-pointer ${
+                            partner1SalaryInputMode === 'net'
+                              ? 'border-gray-900 bg-white'
+                              : 'border-gray-200 bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center mb-2">
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mr-2 ${
+                              partner1SalaryInputMode === 'net' ? 'border-gray-900' : 'border-gray-300'
+                            }`}>
+                              {partner1SalaryInputMode === 'net' && (
+                                <div className="w-2 h-2 rounded-full bg-gray-900" />
+                              )}
+                            </div>
+                            <span className="text-sm font-medium text-gray-900">Enter Net Income</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">Net: £</span>
+                            <input
+                              type="text"
+                              value={partner1NetAnnual}
+                              onChange={(e) => { e.stopPropagation(); setPartner1NetAnnual(e.target.value); }}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={partner1SalaryInputMode !== 'net'}
+                              placeholder="50,000"
+                              className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm disabled:opacity-50 disabled:bg-gray-50"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Gross will be back-calculated using UK PAYE tax
+                          </p>
+                          {errors.partner1NetAnnual && (
+                            <p className="text-xs text-red-600 mt-1">{errors.partner1NetAnnual}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {partner1IncomeMode !== 'employed' && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Standard PAYE tax (income tax + NI)
+                      </p>
                     )}
                   </div>
                 </div>
@@ -637,89 +867,165 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Partner 2 Salary */}
+          {/* Partner 2 Income Mode */}
           <div className="border-t border-gray-100 pt-6 mb-6">
             <label className="block text-xs font-medium text-gray-700 mb-2">
-              Partner 2's Salary (PAYE)
+              Partner 2's Income
             </label>
             <div className="space-y-3">
-              {/* Gross input */}
+              {/* Business option */}
               <button
                 type="button"
-                onClick={() => setPartner2SalaryInputMode('gross')}
+                onClick={() => setPartner2IncomeMode('business')}
                 className={`w-full text-left p-4 rounded-lg border-2 transition-colors ${
-                  partner2SalaryInputMode === 'gross'
+                  partner2IncomeMode === 'business'
                     ? 'border-gray-900 bg-gray-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <div className="flex items-start space-x-3">
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                    partner2SalaryInputMode === 'gross' ? 'border-gray-900' : 'border-gray-300'
+                    partner2IncomeMode === 'business' ? 'border-gray-900' : 'border-gray-300'
                   }`}>
-                    {partner2SalaryInputMode === 'gross' && (
+                    {partner2IncomeMode === 'business' && (
                       <div className="w-2.5 h-2.5 rounded-full bg-gray-900" />
                     )}
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium text-gray-900 mb-2">Enter Gross Salary</div>
+                    <div className="font-medium text-gray-900 mb-2">
+                      Contractor / Business (Ltd Company)
+                    </div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">Gross: £</span>
+                      <span className="text-sm text-gray-600">Business revenue: £</span>
                       <input
                         type="text"
-                        value={partner2GrossAnnual}
-                        onChange={(e) => setPartner2GrossAnnual(e.target.value)}
-                        disabled={partner2SalaryInputMode !== 'gross'}
-                        placeholder="100,000"
+                        value={partner2BusinessRevenue}
+                        onChange={(e) => setPartner2BusinessRevenue(e.target.value)}
+                        disabled={partner2IncomeMode !== 'business'}
+                        placeholder="120,000"
                         className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm disabled:opacity-50 disabled:bg-gray-50"
                       />
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Net will be calculated automatically
+                      Optimal salary/dividend extraction via Ltd company
                     </p>
-                    {errors.partner2GrossAnnual && (
-                      <p className="text-xs text-red-600 mt-1">{errors.partner2GrossAnnual}</p>
+                    {errors.partner2BusinessRevenue && (
+                      <p className="text-xs text-red-600 mt-1">{errors.partner2BusinessRevenue}</p>
                     )}
                   </div>
                 </div>
               </button>
 
-              {/* Net input */}
+              {/* Employed option */}
               <button
                 type="button"
-                onClick={() => setPartner2SalaryInputMode('net')}
+                onClick={() => setPartner2IncomeMode('employed')}
                 className={`w-full text-left p-4 rounded-lg border-2 transition-colors ${
-                  partner2SalaryInputMode === 'net'
+                  partner2IncomeMode === 'employed'
                     ? 'border-gray-900 bg-gray-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <div className="flex items-start space-x-3">
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                    partner2SalaryInputMode === 'net' ? 'border-gray-900' : 'border-gray-300'
+                    partner2IncomeMode === 'employed' ? 'border-gray-900' : 'border-gray-300'
                   }`}>
-                    {partner2SalaryInputMode === 'net' && (
+                    {partner2IncomeMode === 'employed' && (
                       <div className="w-2.5 h-2.5 rounded-full bg-gray-900" />
                     )}
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium text-gray-900 mb-2">Enter Net Income</div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">Net: £</span>
-                      <input
-                        type="text"
-                        value={partner2NetAnnual}
-                        onChange={(e) => setPartner2NetAnnual(e.target.value)}
-                        disabled={partner2SalaryInputMode !== 'net'}
-                        placeholder="75,600"
-                        className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm disabled:opacity-50 disabled:bg-gray-50"
-                      />
+                    <div className="font-medium text-gray-900 mb-2">
+                      Employed (PAYE)
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Gross will be back-calculated using UK PAYE tax
-                    </p>
-                    {errors.partner2NetAnnual && (
-                      <p className="text-xs text-red-600 mt-1">{errors.partner2NetAnnual}</p>
+
+                    {/* Gross/Net toggle within Employed mode */}
+                    {partner2IncomeMode === 'employed' && (
+                      <div className="space-y-2 mt-3">
+                        {/* Gross input option */}
+                        <div
+                          onClick={(e) => { e.stopPropagation(); setPartner2SalaryInputMode('gross'); }}
+                          className={`p-3 rounded border cursor-pointer ${
+                            partner2SalaryInputMode === 'gross'
+                              ? 'border-gray-900 bg-white'
+                              : 'border-gray-200 bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center mb-2">
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mr-2 ${
+                              partner2SalaryInputMode === 'gross' ? 'border-gray-900' : 'border-gray-300'
+                            }`}>
+                              {partner2SalaryInputMode === 'gross' && (
+                                <div className="w-2 h-2 rounded-full bg-gray-900" />
+                              )}
+                            </div>
+                            <span className="text-sm font-medium text-gray-900">Enter Gross Salary</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">Gross: £</span>
+                            <input
+                              type="text"
+                              value={partner2EmployedSalary}
+                              onChange={(e) => { e.stopPropagation(); setPartner2EmployedSalary(e.target.value); }}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={partner2SalaryInputMode !== 'gross'}
+                              placeholder="45,000"
+                              className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm disabled:opacity-50 disabled:bg-gray-50"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Net will be calculated automatically
+                          </p>
+                          {errors.partner2EmployedSalary && (
+                            <p className="text-xs text-red-600 mt-1">{errors.partner2EmployedSalary}</p>
+                          )}
+                        </div>
+
+                        {/* Net input option */}
+                        <div
+                          onClick={(e) => { e.stopPropagation(); setPartner2SalaryInputMode('net'); }}
+                          className={`p-3 rounded border cursor-pointer ${
+                            partner2SalaryInputMode === 'net'
+                              ? 'border-gray-900 bg-white'
+                              : 'border-gray-200 bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center mb-2">
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mr-2 ${
+                              partner2SalaryInputMode === 'net' ? 'border-gray-900' : 'border-gray-300'
+                            }`}>
+                              {partner2SalaryInputMode === 'net' && (
+                                <div className="w-2 h-2 rounded-full bg-gray-900" />
+                              )}
+                            </div>
+                            <span className="text-sm font-medium text-gray-900">Enter Net Income</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">Net: £</span>
+                            <input
+                              type="text"
+                              value={partner2NetAnnual}
+                              onChange={(e) => { e.stopPropagation(); setPartner2NetAnnual(e.target.value); }}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={partner2SalaryInputMode !== 'net'}
+                              placeholder="35,000"
+                              className="flex-1 px-2 py-1 border border-gray-200 rounded text-sm disabled:opacity-50 disabled:bg-gray-50"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Gross will be back-calculated using UK PAYE tax
+                          </p>
+                          {errors.partner2NetAnnual && (
+                            <p className="text-xs text-red-600 mt-1">{errors.partner2NetAnnual}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {partner2IncomeMode !== 'employed' && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Standard PAYE tax (income tax + NI)
+                      </p>
                     )}
                   </div>
                 </div>
@@ -881,107 +1187,301 @@ export function SettingsPage() {
         {/* Section 3: Outgoings */}
         <section className="border-b border-gray-100 pb-8 mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Outgoings</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Set your baseline expenses (before any extras like school fees).
+          </p>
 
-          <div className="space-y-6">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">School Fees (per child, annual)</label>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">£</span>
-                <input
-                  type="text"
-                  value={annualSchoolFeePerChild}
-                  onChange={(e) => setAnnualSchoolFeePerChild(e.target.value)}
-                  placeholder="18,000"
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                />
+          {/* Monthly/Annual Toggle */}
+          <div className="flex gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => setExpenseInputMode('monthly')}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                expenseInputMode === 'monthly'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpenseInputMode('annual')}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                expenseInputMode === 'annual'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Annual
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {expenseInputMode === 'monthly' ? (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Personal Expenses (Monthly)
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">£</span>
+                    <input
+                      type="text"
+                      value={personalExpensesMonthly}
+                      onChange={(e) => setPersonalExpensesMonthly(e.target.value)}
+                      placeholder="5,000"
+                      className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Household: rent/mortgage, groceries, utilities, transport
+                  </p>
+                  {errors.personalExpensesMonthly && (
+                    <p className="text-xs text-red-600 mt-1">{errors.personalExpensesMonthly}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Business Expenses (Monthly)
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">£</span>
+                    <input
+                      type="text"
+                      value={businessExpensesMonthly}
+                      onChange={(e) => setBusinessExpensesMonthly(e.target.value)}
+                      placeholder="1,000"
+                      className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Only if self-employed: office, software, accountant, insurance
+                  </p>
+                  {errors.businessExpensesMonthly && (
+                    <p className="text-xs text-red-600 mt-1">{errors.businessExpensesMonthly}</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Personal Expenses (Annual)
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">£</span>
+                    <input
+                      type="text"
+                      value={personalExpensesAnnual}
+                      onChange={(e) => setPersonalExpensesAnnual(e.target.value)}
+                      placeholder="60,000"
+                      className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Household: rent/mortgage, groceries, utilities, transport
+                  </p>
+                  {errors.personalExpensesAnnual && (
+                    <p className="text-xs text-red-600 mt-1">{errors.personalExpensesAnnual}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Business Expenses (Annual)
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">£</span>
+                    <input
+                      type="text"
+                      value={businessExpensesAnnual}
+                      onChange={(e) => setBusinessExpensesAnnual(e.target.value)}
+                      placeholder="12,000"
+                      className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Only if self-employed: office, software, accountant, insurance
+                  </p>
+                  {errors.businessExpensesAnnual && (
+                    <p className="text-xs text-red-600 mt-1">{errors.businessExpensesAnnual}</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Extras Section */}
+          <div className="mt-8 pt-8 border-t border-gray-100">
+            <h3 className="text-sm font-medium text-gray-900 mb-2">Extras (Optional)</h3>
+            <p className="text-xs text-gray-600 mb-4">
+              Enable additional expenses for specific scenarios. These are layered on top of baseline expenses.
+            </p>
+
+            {/* School Fees Card */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">School Fees</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Private school for children ages 5-18</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSchoolFeesEnabled(!schoolFeesEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    schoolFeesEnabled ? 'bg-gray-900' : 'bg-gray-200'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    schoolFeesEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Ages 5-18, inflation-adjusted</p>
-              {errors.annualSchoolFeePerChild && (
-                <p className="text-xs text-red-600 mt-1">{errors.annualSchoolFeePerChild}</p>
+
+              {schoolFeesEnabled && (
+                <div className="pt-3 border-t border-gray-100">
+                  <label className="block text-xs text-gray-500 mb-1">Annual fee per child</label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">£</span>
+                    <input
+                      type="text"
+                      value={annualSchoolFeePerChild}
+                      onChange={(e) => setAnnualSchoolFeePerChild(e.target.value)}
+                      placeholder="18,000"
+                      className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Ages 5-18, inflation-adjusted at 5% annually</p>
+                  {errors.annualSchoolFeePerChild && (
+                    <p className="text-xs text-red-600 mt-1">{errors.annualSchoolFeePerChild}</p>
+                  )}
+                </div>
               )}
             </div>
 
-            <div className="pt-6 border-t border-gray-100">
-              <h3 className="text-sm font-medium text-gray-900 mb-2">House Upgrade</h3>
-              <div className="grid grid-cols-2 gap-4">
+            {/* House Upgrade Card */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-3">
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Current House Value</label>
-                  <input
-                    type="text"
-                    value={currentHouseValue}
-                    onChange={(e) => setCurrentHouseValue(e.target.value)}
-                    placeholder="£400,000"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  />
-                  {errors.currentHouseValue && (
-                    <p className="text-xs text-red-600 mt-1">{errors.currentHouseValue}</p>
-                  )}
+                  <h4 className="text-sm font-medium text-gray-900">House Upgrade</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Move to larger/better property</p>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Upgrade Budget</label>
-                  <input
-                    type="text"
-                    value={houseUpgradeBudget}
-                    onChange={(e) => setHouseUpgradeBudget(e.target.value)}
-                    placeholder="£600,000"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  />
-                  {errors.houseUpgradeBudget && (
-                    <p className="text-xs text-red-600 mt-1">{errors.houseUpgradeBudget}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Mortgage Remaining</label>
-                  <input
-                    type="text"
-                    value={mortgageRemaining}
-                    onChange={(e) => setMortgageRemaining(e.target.value)}
-                    placeholder="£200,000"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  />
-                  {errors.mortgageRemaining && (
-                    <p className="text-xs text-red-600 mt-1">{errors.mortgageRemaining}</p>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setHouseUpgradeEnabled(!houseUpgradeEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    houseUpgradeEnabled ? 'bg-gray-900' : 'bg-gray-200'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    houseUpgradeEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
               </div>
+
+              {houseUpgradeEnabled && (
+                <div className="pt-3 border-t border-gray-100 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Current House Value</label>
+                      <input
+                        type="text"
+                        value={currentHouseValue}
+                        onChange={(e) => setCurrentHouseValue(e.target.value)}
+                        placeholder="£400,000"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      />
+                      {errors.currentHouseValue && (
+                        <p className="text-xs text-red-600 mt-1">{errors.currentHouseValue}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Upgrade Budget</label>
+                      <input
+                        type="text"
+                        value={houseUpgradeBudget}
+                        onChange={(e) => setHouseUpgradeBudget(e.target.value)}
+                        placeholder="£600,000"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      />
+                      {errors.houseUpgradeBudget && (
+                        <p className="text-xs text-red-600 mt-1">{errors.houseUpgradeBudget}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Mortgage Remaining</label>
+                    <input
+                      type="text"
+                      value={mortgageRemaining}
+                      onChange={(e) => setMortgageRemaining(e.target.value)}
+                      placeholder="£200,000"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                    {errors.mortgageRemaining && (
+                      <p className="text-xs text-red-600 mt-1">{errors.mortgageRemaining}</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="pt-6 border-t border-gray-100">
-              <h3 className="text-sm font-medium text-gray-900 mb-2">University Costs</h3>
-              <div className="grid grid-cols-2 gap-4">
+            {/* University Card */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Annual Cost per Child</label>
-                  <input
-                    type="text"
-                    value={universityAnnualCost}
-                    onChange={(e) => setUniversityAnnualCost(e.target.value)}
-                    placeholder="£30,000"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  />
-                  {errors.universityAnnualCost && (
-                    <p className="text-xs text-red-600 mt-1">{errors.universityAnnualCost}</p>
-                  )}
+                  <h4 className="text-sm font-medium text-gray-900">University Costs</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Support children through university</p>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Years Supported</label>
-                  <input
-                    type="text"
-                    value={universityYears}
-                    onChange={(e) => setUniversityYears(e.target.value)}
-                    placeholder="4"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  />
-                  {errors.universityYears && (
-                    <p className="text-xs text-red-600 mt-1">{errors.universityYears}</p>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setUniversityEnabled(!universityEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    universityEnabled ? 'bg-gray-900' : 'bg-gray-200'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    universityEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
               </div>
+
+              {universityEnabled && (
+                <div className="pt-3 border-t border-gray-100">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Annual Cost per Child</label>
+                      <input
+                        type="text"
+                        value={universityAnnualCost}
+                        onChange={(e) => setUniversityAnnualCost(e.target.value)}
+                        placeholder="£30,000"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      />
+                      {errors.universityAnnualCost && (
+                        <p className="text-xs text-red-600 mt-1">{errors.universityAnnualCost}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Years Supported</label>
+                      <input
+                        type="text"
+                        value={universityYears}
+                        onChange={(e) => setUniversityYears(e.target.value)}
+                        placeholder="4"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      />
+                      {errors.universityYears && (
+                        <p className="text-xs text-red-600 mt-1">{errors.universityYears}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          <p className="text-xs text-gray-500 mt-4">
-            Note: Personal and business expenses are tracked in monthly snapshots via "Update Numbers"
-          </p>
         </section>
 
         {/* Section 4: Assets */}

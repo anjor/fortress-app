@@ -7,13 +7,11 @@ import { useFortressStore } from '../store';
 import { HeadlineCards } from './HeadlineCards';
 import { CashflowTable } from './CashflowTable';
 import { MinimumIncomeTable } from './MinimumIncomeTable';
-import { DataEntryModal } from './DataEntryModal';
 import { MethodologyModal } from './MethodologyModal';
 import { WindfallEditor } from './WindfallEditor';
-import { RefreshCw, Settings, Download } from 'lucide-react';
+import { Settings, Download } from 'lucide-react';
 
 export function Dashboard() {
-  const [showDataEntry, setShowDataEntry] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [showWindfallEditor, setShowWindfallEditor] = useState(false);
 
@@ -66,13 +64,6 @@ export function Dashboard() {
             <span className="text-xs text-gray-400">
               Last updated: {lastUpdated}
             </span>
-            <button
-              onClick={() => setShowDataEntry(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Update
-            </button>
             <Link
               to="/settings"
               className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
@@ -92,9 +83,7 @@ export function Dashboard() {
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-12">
         {!hasSnapshot && (
-          <OnboardingPanel
-            onAddSnapshot={() => setShowDataEntry(true)}
-          />
+          <OnboardingPanel />
         )}
         
         {/* Headline Metrics */}
@@ -146,23 +135,15 @@ export function Dashboard() {
         <section className="pt-4 border-t border-gray-100">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setShowDataEntry(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Update Numbers
-            </button>
-            
-            <button
               className="flex items-center gap-2 px-4 py-2 text-gray-600 text-sm font-medium border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
             >
               <Download className="w-4 h-4" />
               Export PDF
             </button>
-            
-            <a 
-              href="https://claude.ai" 
-              target="_blank" 
+
+            <a
+              href="https://claude.ai"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-gray-500 hover:text-gray-700 ml-auto"
             >
@@ -173,10 +154,6 @@ export function Dashboard() {
       </main>
       
       {/* Modals */}
-      {showDataEntry && (
-        <DataEntryModal onClose={() => setShowDataEntry(false)} />
-      )}
-
       {showMethodology && (
         <MethodologyModal onClose={() => setShowMethodology(false)} />
       )}
@@ -196,11 +173,7 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function OnboardingPanel({
-  onAddSnapshot,
-}: {
-  onAddSnapshot: () => void;
-}) {
+function OnboardingPanel() {
   return (
     <section className="p-6 border border-gray-200 rounded-xl bg-gray-50">
       <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Start here</p>
@@ -231,13 +204,6 @@ function OnboardingPanel({
           <Settings className="w-4 h-4" />
           Configure Settings
         </Link>
-        <button
-          onClick={onAddSnapshot}
-          className="flex items-center gap-2 px-4 py-2 text-gray-700 text-sm font-medium border border-gray-200 rounded-md hover:bg-gray-100 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Add first snapshot
-        </button>
         <p className="text-xs text-gray-500">
           Once saved, projections unlock headline metrics, "money lasts to age" and "income needed" tables.
         </p>

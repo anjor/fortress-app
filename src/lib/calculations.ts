@@ -419,25 +419,25 @@ export function runScenarioToExhaustion(
     // Expenses
     let expenses = calculateAnnualExpenses(snapshot, config);
     
-    // School fees (School: ages 4-11, then secondary assumed similar)
+    // School fees (only if enabled and has children)
     const schoolKids = childrenAges.filter(childAge => childAge >= 4 && childAge <= 18).length;
-    const hasSchoolFees = schoolKids > 0;
-    if (schoolKids > 0) {
+    const hasSchoolFees = config.schoolFeesEnabled && schoolKids > 0;
+    if (hasSchoolFees) {
       const inflatedFee = config.annualSchoolFeePerChild *
                           Math.pow(1 + assumptions.schoolFeeInflation, age - partner1Age);
       expenses += schoolKids * inflatedFee;
     }
     
-    // University (ages 18-22 for each child)
-    if (scenario.includeUniversity) {
+    // University (only if enabled in config AND scenario)
+    if (config.universityEnabled && scenario.includeUniversity) {
       const uniKids = childrenAges.filter(childAge =>
         childAge >= 18 && childAge < 18 + config.universityYears
       ).length;
       expenses += uniKids * config.universityAnnualCost;
     }
-    
-    // House upgrade (one-time expense in upgrade year)
-    if (scenario.includeHouseUpgrade && year === scenario.houseUpgradeYear) {
+
+    // House upgrade (only if enabled in config AND scenario)
+    if (config.houseUpgradeEnabled && scenario.includeHouseUpgrade && year === scenario.houseUpgradeYear) {
       const upgradeCost = config.houseUpgradeBudget - config.currentHouseValue;
       const stampDuty = calculateStampDuty(config.houseUpgradeBudget);
       expenses += upgradeCost + stampDuty;
@@ -605,19 +605,14 @@ function calculateRunway(
 }
 
 function calculateAnnualExpenses(
-  snapshot: MonthlySnapshot,
+  _snapshot: MonthlySnapshot,
   config: FortressConfig
 ): number {
-  const totalExpensesYTD = snapshot.totalExpensesYTD || (snapshot.personalExpensesYTD + snapshot.businessExpensesYTD);
-  const annualized = annualizeYTD(totalExpensesYTD, snapshot.date);
+  // Use baseline monthly expenses from config (not YTD tracking)
+  const baselinePersonal = (config.personalExpensesMonthly || 5000) * 12;
+  const baselineBusiness = (config.businessExpensesMonthly || 1000) * 12;
 
-  // Remove school fees already paid this year to avoid double counting when we add them per child
-  const year = snapshot.date.getFullYear();
-  const childrenAges = getChildBirthYears(config).map(by => year - by);
-  const kidsInSchoolNow = childrenAges.filter(age => age >= 4 && age <= 18).length;
-  const currentYearSchoolFees = kidsInSchoolNow * config.annualSchoolFeePerChild;
-
-  return Math.max(annualized - currentYearSchoolFees, 0);
+  return baselinePersonal + baselineBusiness;
 }
 
 function calculateAnnualTax(

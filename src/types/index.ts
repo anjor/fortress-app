@@ -33,9 +33,7 @@ export interface MonthlySnapshot {
   businessRevenueYTD: number;
   partner2IncomeYTD: number;
 
-  // Expense tracking
-  personalExpensesYTD: number;
-  businessExpensesYTD: number;
+  // Expense tracking (for comparison only)
   totalExpensesYTD: number;
 }
 
@@ -59,13 +57,25 @@ export interface FortressConfig {
   partner1BusinessRevenue: number;              // Business gross revenue
   partner1EmployedSalary: number;               // PAYE gross salary
 
-  // Partner 2's income
-  partner2SalaryInputMode: 'gross' | 'net';  // Which field is source of truth
-  partner2GrossAnnual: number;
-  partner2NetAnnual: number;
+  // Partner 2's income (dual mode like Partner 1)
+  partner2IncomeMode: 'business' | 'employed';  // Toggle between modes
+  partner2BusinessRevenue: number;              // Business gross revenue
+  partner2EmployedSalary: number;               // PAYE gross salary
+  partner2SalaryInputMode: 'gross' | 'net';    // Which field is source of truth (employed mode only)
+  partner2GrossAnnual: number;                  // DEPRECATED: use partner2EmployedSalary
+  partner2NetAnnual: number;                    // Keep for calculations
+
+  // Baseline expenses (moved from snapshots)
+  personalExpensesMonthly: number;
+  businessExpensesMonthly: number;
 
   // School fees (annual per child, current year)
   annualSchoolFeePerChild: number;
+
+  // Extras toggles (enable/disable)
+  schoolFeesEnabled: boolean;
+  houseUpgradeEnabled: boolean;
+  universityEnabled: boolean;
 
   // Goals
   fiTargetMultiple: number;   // 25x expenses = 4% SWR
@@ -289,12 +299,24 @@ export const DEFAULT_CONFIG: FortressConfig = {
   partner1BusinessRevenue: 120000,
   partner1EmployedSalary: 70000,
 
+  partner2IncomeMode: 'employed',
+  partner2BusinessRevenue: 120000,
+  partner2EmployedSalary: 45000,
   partner2SalaryInputMode: 'gross',
   partner2GrossAnnual: 45000,
   partner2NetAnnual: 35000,
 
+  // Baseline expenses
+  personalExpensesMonthly: 5000,   // £60k/year baseline
+  businessExpensesMonthly: 1000,   // £12k/year baseline
+
   // UK private school average
   annualSchoolFeePerChild: 18000,
+
+  // Extras toggles (disabled by default)
+  schoolFeesEnabled: false,
+  houseUpgradeEnabled: false,
+  universityEnabled: false,
 
   fiTargetMultiple: 25,
   fiTargetMode: 'multiplier',

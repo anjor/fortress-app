@@ -228,9 +228,7 @@ export function loadDemoData() {
     total: 3735674,
     businessRevenueYTD: 526259,
     partner2IncomeYTD: 50400,
-    personalExpensesYTD: 126515,
-    businessExpensesYTD: 42829,
-    totalExpensesYTD: 169344,
+    totalExpensesYTD: 0,
   };
 
   useFortressStore.getState().updateSnapshot(demoSnapshot);
