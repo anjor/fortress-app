@@ -42,6 +42,7 @@ interface FortressStore {
   snapshotHistory: MonthlySnapshot[];
   config: FortressConfig;
   hasCompletedOnboarding: boolean;
+  selectedQuestions: string[];  // Question IDs from QuestionSelector
 
   // Computed (cached after calculation)
   headlineMetrics: HeadlineMetrics | null;
@@ -55,6 +56,7 @@ interface FortressStore {
   updateConfig: (config: Partial<FortressConfig>) => void;
   recalculate: () => void;
   markOnboardingComplete: () => void;
+  setSelectedQuestions: (questions: string[]) => void;
   resetStore: () => void;
 }
 
@@ -66,6 +68,7 @@ export const useFortressStore = create<FortressStore>()(
       snapshotHistory: [],
       config: DEFAULT_CONFIG,
       hasCompletedOnboarding: false,
+      selectedQuestions: [],
       headlineMetrics: null,
       cashflowTable: [],
       scenarioCostTable: [],
@@ -166,6 +169,11 @@ export const useFortressStore = create<FortressStore>()(
       // Mark onboarding as complete
       markOnboardingComplete: () => {
         set({ hasCompletedOnboarding: true });
+      },
+
+      // Set selected questions from QuestionSelector
+      setSelectedQuestions: (questions) => {
+        set({ selectedQuestions: questions });
       },
 
       // Reset to initial state

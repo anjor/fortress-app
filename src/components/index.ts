@@ -6,3 +6,4 @@ export { CashflowTable, CashflowTableCompact, CashflowSummary } from './Cashflow
 export { MinimumIncomeTable, MinimumIncomeSummary, IncomeGauge } from './MinimumIncomeTable';
 export { DataEntryModal } from './DataEntryModal';
 export { MethodologyModal } from './MethodologyModal';
+export { QuestionSelector } from './QuestionSelector';
