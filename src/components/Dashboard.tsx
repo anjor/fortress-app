@@ -9,6 +9,7 @@ import { CashflowTable } from './CashflowTable';
 import { MinimumIncomeTable } from './MinimumIncomeTable';
 import { MethodologyModal } from './MethodologyModal';
 import { WindfallEditor } from './WindfallEditor';
+import { QuestionInsights } from './QuestionInsights';
 import { Settings, Download } from 'lucide-react';
 
 export function Dashboard() {
@@ -94,6 +95,9 @@ export function Dashboard() {
             onEditWindfalls={() => setShowWindfallEditor(true)}
           />
         )}
+
+        {/* Question-specific insights */}
+        <QuestionInsights />
 
         {/* Cashflow Conclusion Table */}
         <section>
