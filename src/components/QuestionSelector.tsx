@@ -3,14 +3,14 @@
 
 import { useState } from 'react';
 
-interface Question {
+export interface Question {
   id: string;
   text: string;
   tier: 1 | 2 | 3;
   insights: string[];
 }
 
-const QUESTIONS: Question[] = [
+export const QUESTIONS: Question[] = [
   // Tier 1 - Core retirement questions
   {
     id: 'retire-target-age',
@@ -117,7 +117,7 @@ const QUESTIONS: Question[] = [
   }
 ];
 
-const UNIVERSAL_INSIGHTS = [
+export const UNIVERSAL_INSIGHTS = [
   'Maximum annual spending capacity throughout retirement',
   'Required monthly savings between now and retirement',
   'Required investment return to achieve your goals',

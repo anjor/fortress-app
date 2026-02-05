@@ -201,6 +201,7 @@ export const useFortressStore = create<FortressStore>()(
         snapshotHistory: state.snapshotHistory,
         config: state.config,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
+        selectedQuestions: state.selectedQuestions,
       }),
       // Revive Date objects on load
       merge: (persistedState, currentState) => {
