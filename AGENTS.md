@@ -1,11 +1,11 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/main.tsx` bootstraps Vite/React; `src/App.tsx` renders the dashboard.
-- Components in `src/components` (tables, modals, dashboard) with barrel export `index.ts`.
-- Pure calculations/utilities in `src/lib` (`calculations.ts`, `uk-tax.ts`, `date-utils.ts`); keep side-effect free.
-- Zustand store in `src/store/index.ts` handles snapshots, derived tables, and persistence.
-- Types and defaults in `src/types`; styling via Tailwind (`src/index.css`, `tailwind.config.js`).
+- `src/main.tsx` bootstraps Vite/React; `src/App.tsx` is the tab shell.
+- Tab views in `src/components/tabs/`; reusable primitives in `src/components/ui/`.
+- Pure calculations/utilities in `src/lib` (`simulation.ts`, `uk-tax.ts`, `presets.ts`, `formatters.ts`, `buildSimOptions.ts`, `useScenarioState.ts`); keep side-effect free.
+- Zustand store in `src/store.ts` persists the editable `FortressConfig` to localStorage.
+- Types in `src/types.ts`; demo defaults in `src/data/demoConfig.ts`; styling via Tailwind (`src/index.css`, `tailwind.config.js`).
 
 ## Build, Test, and Development Commands
 - `npm install`
