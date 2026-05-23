@@ -1,193 +1,124 @@
-// UK Tax Calculations for Fortress v2
-// Simplified version focused on optimal extraction for Ltd company directors
+// UK tax calculations: PAYE net and owner-managed business extraction.
+//
+// These are pure functions of (gross, TaxParams). The TaxParams come from
+// the config so users can update rates without code changes.
 
-export interface ExtractionResult {
-  salary: number;
-  dividends: number;
+import type { TaxParams, PartnerIncome } from '../types';
+
+export const DEFAULT_TAX: TaxParams = {
+  personalAllowance: 12_570,
+  paTaperStart: 100_000,
+  basicRateTop: 50_270,
+  higherRateTop: 125_140,
+  basicRate: 0.20,
+  higherRate: 0.40,
+  additionalRate: 0.45,
+
+  niPrimaryThreshold: 12_570,
+  niUpperEarningsLimit: 50_270,
+  niMainRate: 0.08,
+  niAdditionalRate: 0.02,
+
+  corporationTaxRate: 0.25,
+  dividendAllowance: 500,
+  dividendBasicRate: 0.0875,
+  dividendHigherRate: 0.3375,
+};
+
+/** Income tax owed on a gross PAYE salary, including the PA taper above £100k. */
+export function incomeTaxOnSalary(salary: number, t: TaxParams): number {
+  if (salary <= t.personalAllowance) return 0;
+
+  const band1 = Math.max(0, Math.min(salary, t.basicRateTop) - t.personalAllowance);
+  const band2 = Math.max(0, Math.min(salary, t.paTaperStart) - t.basicRateTop);
+  const band3 = Math.max(0, Math.min(salary, t.higherRateTop) - t.paTaperStart);
+  const band4 = Math.max(0, salary - t.higherRateTop);
+
+  let tax = band1 * t.basicRate + band2 * t.higherRate + band3 * t.higherRate + band4 * t.additionalRate;
+
+  if (salary > t.paTaperStart) {
+    const lostPA = Math.min(t.personalAllowance, (salary - t.paTaperStart) / 2);
+    tax += lostPA * t.higherRate;
+  }
+  return tax;
+}
+
+/** Employee National Insurance on a salary. */
+export function employeeNI(salary: number, t: TaxParams): number {
+  if (salary <= t.niPrimaryThreshold) return 0;
+  const band1 = Math.min(salary, t.niUpperEarningsLimit) - t.niPrimaryThreshold;
+  const band2 = Math.max(0, salary - t.niUpperEarningsLimit);
+  return band1 * t.niMainRate + band2 * t.niAdditionalRate;
+}
+
+/** Net take-home from a gross PAYE salary. */
+export function payeNet(salary: number, t: TaxParams): number {
+  if (salary <= 0) return 0;
+  return salary - incomeTaxOnSalary(salary, t) - employeeNI(salary, t);
+}
+
+/** Binary search the gross PAYE salary required to net a target. */
+export function grossForNet(targetNet: number, t: TaxParams): number {
+  if (targetNet <= 0) return 0;
+  let lo = targetNet, hi = targetNet * 3;
+  while (payeNet(hi, t) < targetNet) hi *= 1.5;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (payeNet(mid, t) >= targetNet) hi = mid;
+    else lo = mid;
+  }
+  return Math.ceil(hi);
+}
+
+// ---------------------------------------------------------------------------
+// Business extraction (owner-managed Ltd)
+// ---------------------------------------------------------------------------
+
+export interface BusinessDistribution {
+  familyNet: number;          // total net cash reaching the household this year
+  retained: number;           // company cash retained after extraction
+  pensionContrib: number;     // pension paid into by the company
   corporationTax: number;
-  incomeTax: number;
-  nationalInsurance: number;
   dividendTax: number;
-  totalTax: number;
-  netIncome: number;
-  effectiveRate: number;
 }
 
 /**
- * Calculate optimal salary/dividend split for company director
- * Uses 2024/25 tax rates
+ * Distribute the year's gross revenue from an owner-managed Ltd between
+ * salary, employer pension contribution, dividends, and retained profit.
+ *
+ * Tax-efficient default: each partner draws a salary up to the NI/PA
+ * threshold, then dividends up to the basic rate band. Profit beyond that
+ * stays in the company (loan reservoir).
  */
-export function calculateOptimalExtraction(grossRevenue: number): ExtractionResult {
-  // Optimal strategy: £12,570 salary (NI threshold), rest as dividends
-  const optimalSalary = 12570;
-  
-  // Corporation tax on profits
-  const employerNI = calculateEmployerNI(optimalSalary);
-  const deductibleCosts = optimalSalary + employerNI;
-  const profits = Math.max(0, grossRevenue - deductibleCosts);
-  
-  const corporationTax = calculateCorporationTax(profits);
-  const availableForDividends = profits - corporationTax;
-  
-  // Personal taxes
-  const employeeNI = calculateEmployeeNI(optimalSalary);
-  const incomeTax = calculateIncomeTax(optimalSalary);
-  const dividendTax = calculateDividendTax(availableForDividends);
-  
-  const totalTax = corporationTax + incomeTax + employeeNI + dividendTax;
-  const netIncome = grossRevenue - totalTax;
-  
-  return {
-    salary: optimalSalary,
-    dividends: availableForDividends,
-    corporationTax,
-    incomeTax,
-    nationalInsurance: employeeNI + employerNI,
-    dividendTax,
-    totalTax,
-    netIncome,
-    effectiveRate: totalTax / grossRevenue,
-  };
-}
+export function distributeBusiness(
+  revenue: number,
+  businessExpenses: number,
+  partner1: PartnerIncome,
+  partner2: PartnerIncome,
+  t: TaxParams,
+): BusinessDistribution {
+  const r = Math.max(0, revenue);
 
-/**
- * Corporation tax with marginal relief
- */
-function calculateCorporationTax(profits: number): number {
-  if (profits <= 0) return 0;
-  
-  const smallProfitsRate = 0.19;
-  const mainRate = 0.25;
-  const lowerLimit = 50000;
-  const upperLimit = 250000;
-  
-  if (profits <= lowerLimit) {
-    return profits * smallProfitsRate;
-  }
-  
-  if (profits >= upperLimit) {
-    return profits * mainRate;
-  }
-  
-  // Marginal relief formula
-  const baseTax = profits * mainRate;
-  const marginalRelief = ((upperLimit - profits) * (profits - lowerLimit)) / 
-                         (upperLimit - lowerLimit) * 0.015;
-  
-  return baseTax - marginalRelief;
-}
+  const salaryTotal = partner1.salaryComponent + partner2.salaryComponent;
+  const targetPension = partner1.pensionContribAnnual + partner2.pensionContribAnnual;
 
-/**
- * Employee National Insurance
- */
-function calculateEmployeeNI(salary: number): number {
-  const primaryThreshold = 12570;
-  const upperLimit = 50270;
-  const mainRate = 0.12;
-  const additionalRate = 0.02;
-  
-  if (salary <= primaryThreshold) return 0;
-  
-  if (salary <= upperLimit) {
-    return (salary - primaryThreshold) * mainRate;
-  }
-  
-  return (upperLimit - primaryThreshold) * mainRate + 
-         (salary - upperLimit) * additionalRate;
-}
+  const profitBeforePension = r - businessExpenses - salaryTotal;
+  const pensionContrib = profitBeforePension >= targetPension
+    ? targetPension
+    : Math.max(0, profitBeforePension);
 
-/**
- * Employer National Insurance
- */
-function calculateEmployerNI(salary: number): number {
-  const secondaryThreshold = 9100;
-  const rate = 0.138;
-  
-  if (salary <= secondaryThreshold) return 0;
-  return (salary - secondaryThreshold) * rate;
-}
+  const profitAfterPension = Math.max(0, profitBeforePension - pensionContrib);
+  const corporationTax = profitAfterPension * t.corporationTaxRate;
+  const profitAfterCT = profitAfterPension - corporationTax;
 
-/**
- * Income tax on salary
- */
-function calculateIncomeTax(salary: number): number {
-  const personalAllowance = salary > 100000 
-    ? Math.max(0, 12570 - (salary - 100000) / 2)
-    : 12570;
-  
-  const taxable = Math.max(0, salary - personalAllowance);
-  
-  const basicLimit = 37700;
-  const higherLimit = 125140;
-  
-  let tax = 0;
-  
-  if (taxable <= basicLimit) {
-    tax = taxable * 0.20;
-  } else if (taxable <= higherLimit) {
-    tax = basicLimit * 0.20 + (taxable - basicLimit) * 0.40;
-  } else {
-    tax = basicLimit * 0.20 + 
-          (higherLimit - basicLimit) * 0.40 + 
-          (taxable - higherLimit) * 0.45;
-  }
-  
-  return tax;
-}
+  const targetDividends = partner1.dividendTarget + partner2.dividendTarget;
+  const dividendsPaid = Math.min(targetDividends, profitAfterCT);
 
-/**
- * Dividend tax
- */
-function calculateDividendTax(dividends: number): number {
-  // £500 dividend allowance (2024/25)
-  const allowance = 500;
-  const taxable = Math.max(0, dividends - allowance);
-  
-  // Dividend rates (2024/25)
-  const basicRate = 0.0875;
-  const higherRate = 0.3375;
-  const additionalRate = 0.3935;
-  
-  // Personal allowance already used by salary
-  // So dividends start at basic rate
-  const basicBand = 37700;
-  const higherBand = 125140;
-  
-  let tax = 0;
-  
-  if (taxable <= basicBand) {
-    tax = taxable * basicRate;
-  } else if (taxable <= higherBand) {
-    tax = basicBand * basicRate + (taxable - basicBand) * higherRate;
-  } else {
-    tax = basicBand * basicRate + 
-          (higherBand - basicBand) * higherRate + 
-          (taxable - higherBand) * additionalRate;
-  }
-  
-  return tax;
-}
+  const dividendsAboveAllowance = Math.max(0, dividendsPaid - 2 * t.dividendAllowance);
+  const dividendTax = dividendsAboveAllowance * t.dividendBasicRate;
 
-/**
- * Calculate gross revenue needed to achieve target net income
- */
-export function grossForNet(targetNet: number): number {
-  // Binary search for gross that gives target net
-  let low = targetNet;
-  let high = targetNet * 2;
-  
-  while (high - low > 100) {
-    const mid = (low + high) / 2;
-    const result = calculateOptimalExtraction(mid);
-    
-    if (result.netIncome >= targetNet) {
-      high = mid;
-    } else {
-      low = mid;
-    }
-  }
-  
-  return Math.ceil(high);
-}
+  const familyNet = salaryTotal + dividendsPaid - dividendTax;
+  const retained = Math.max(0, profitAfterCT - dividendsPaid);
 
-export default calculateOptimalExtraction;
+  return { familyNet, retained, pensionContrib, corporationTax, dividendTax };
+}
