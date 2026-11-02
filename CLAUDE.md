@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for AI coding agents working in this repository. `AGENTS.md` is a symlink to this file, so edit this one.
 
 ## Project Overview
 
@@ -8,7 +8,8 @@ Fortress is a personal Financial Independence (FI) planning application built wi
 
 ## Commands
 
-- `npm run dev` - Start Vite dev server (`/fortress-app/` base path)
+- `npm install`
+- `npm run dev` - Start Vite dev server on port 5173 with HMR (`/fortress-app/` base path)
 - `npm run build` - TypeScript compile + Vite production build
 - `npm run preview` - Preview production build
 - `npm test` / `npm run test:watch` - Vitest suite
@@ -18,11 +19,13 @@ Fortress is a personal Financial Independence (FI) planning application built wi
 ### Tech Stack
 - React 18 + TypeScript
 - Vite for build tooling
-- Tailwind CSS for styling
+- Tailwind CSS for styling (`src/index.css`, `tailwind.config.js`)
 - Recharts for charts
 - Zustand (with localStorage persistence) for the editable config
 
 ### Layout
+
+**`src/main.tsx`** — Bootstraps Vite/React.
 
 **`src/App.tsx`** — Shell. Holds tab state and the scenario-slider state hook; renders the six tabs.
 
@@ -56,6 +59,10 @@ All values in real (today's £) terms. The engine is a pure function of `SimOpti
 - `distributeBusiness(revenue, expenses, partner1, partner2, t)` — owner-managed Ltd extraction: each partner draws salary up to NI threshold, dividends up to basic rate, employer pension contribution, then retained profit. CT and dividend tax netted out.
 - `DEFAULT_TAX` — UK 2024/25 rates exposed as `TaxParams`.
 
+### Other helpers (`src/lib/`)
+
+`formatters.ts` (display formatting) and `buildSimOptions.ts` (config + slider state → `SimOptions`). Everything in `src/lib` stays side-effect free.
+
 ### Config & store (`src/types.ts`, `src/data/demoConfig.ts`, `src/store.ts`)
 
 `FortressConfig` is the single source of truth. `DEMO_CONFIG` ships anonymized defaults. Zustand persists `config` to localStorage (`fortress-config-v1`). Tabs read config via `useFortressStore`. Slider state for the live tabs lives in `useScenarioState` (`src/lib/useScenarioState.ts`) — not persisted; it resets on reload.
@@ -75,6 +82,34 @@ The app models a two-partner UK household with:
 - Pension lockup until configured unlock age, then merged into liquid
 - Optional lifestyle upgrades: house upgrade (lump + ongoing) and university (per child)
 - Windfalls: equity exit (interpolated from PPS table), inheritance (lump), alternate exit (dividend stream + PAYE salary + lump)
+
+## Coding Style & Naming Conventions
+
+- TypeScript + React function components; prefer small, prop-driven pieces.
+- 2-space indentation, single quotes, and trailing semicolons to match current files.
+- Components/files use `PascalCase`; hooks use `useX`; helper modules in `src/lib` use `camelCase`.
+- Rely on Tailwind utilities; extend shared tokens in `tailwind.config.js` instead of duplicating colors/spacings.
+- Keep view components dumb: calculate/format data in `src/lib` or selectors before passing to JSX.
+
+## Testing Guidelines
+
+- Stack: Vitest + React Testing Library + jsdom.
+- Co-locate `*.test.ts(x)` near sources; cover `src/lib` calculations, store actions/selectors, and critical component flows.
+- Use realistic fixtures (sample configs) and exercise edge cases.
+- Run `npm test` before PRs; prefer behavior assertions over snapshot-only tests.
+
+## Commit & Pull Request Guidelines
+
+- History uses short, imperative subjects (e.g., "license"); keep one focused change per commit, subject <=72 chars.
+- PRs: brief summary + motivation, linked issue (`Fixes #123`), tests executed, and screenshots/GIFs for UI changes (desktop + mobile).
+- Call out data-shape changes to the persisted store or defaults so reviewers can check migration impact.
+- Commit often!
+
+## Security & Configuration Tips
+
+- Never commit secrets; keep env-specific values outside the repo.
+- Persistence uses browser storage; add backward-safe guards/migrations when changing stored types.
+- Run `npm run build` before release branches to catch type/bundle regressions.
 
 ## Design Guidelines
 
